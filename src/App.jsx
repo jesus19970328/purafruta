@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import ProduccionModuleNew from "./ProduccionModule";
 import { ShoppingCart, Package, Factory, Store, Truck, DollarSign, BarChart3, LogOut, Menu, X, Plus, Trash2, Check, AlertCircle, Search, Home, ChevronDown } from "lucide-react";
 
 const SB_URL = 'https://iepqhmxgdyuthcsmxadb.supabase.co';
@@ -120,7 +121,7 @@ function MainApp({ session, perfil, onLogout }) {
     dashboard: <Dashboard tok={tok} />,
     compras: <ComprasModule tok={tok} />,
     almacen: <AlmacenModule tok={tok} />,
-    produccion: <ProduccionModule tok={tok} />,
+    produccion: <ProduccionModuleNew tok={tok} />,
     pdv: <PDVModule tok={tok} />,
     pedidos: <PedidosModule tok={tok} />,
     finanzas: <FinanzasModule tok={tok} />,
