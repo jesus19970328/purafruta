@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import ProduccionModuleNew from "./ProduccionModule";
 import { ShoppingCart, Package, Factory, Store, Truck, DollarSign, BarChart3, LogOut, Menu, X, Plus, Trash2, Check, AlertCircle, Search, Home, ChevronDown } from "lucide-react";
 
 const SB_URL = 'https://iepqhmxgdyuthcsmxadb.supabase.co';
@@ -54,7 +53,7 @@ export default function App() {
   const onLogout = async () => { if (session) await db.logout(session.access_token); localStorage.removeItem('pf_sess'); setSession(null); setPerfil(null); };
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0fdf4' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0fdf4', color: '#111827' }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ width: 48, height: 48, border: '4px solid #16a34a', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
         <p style={{ color: '#6b7280', fontSize: 14 }}>Cargando Purafruta...</p>
@@ -92,12 +91,12 @@ function LoginScreen({ onLogin }) {
           <div style={{ marginBottom: 16 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Email</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@email.com" required
-              style={{ width: '100%', border: '1.5px solid #d1fae5', borderRadius: 10, padding: '10px 14px', fontSize: 14, outline: 'none', boxSizing: 'border-box', background: '#f0fdf4' }} />
+              style={{ width: '100%', border: '1.5px solid #d1fae5', borderRadius: 10, padding: '10px 14px', fontSize: 14, outline: 'none', boxSizing: 'border-box', background: '#f0fdf4', color: '#111827' }} />
           </div>
           <div style={{ marginBottom: 20 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Contraseña</label>
             <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} placeholder="••••••••" required
-              style={{ width: '100%', border: '1.5px solid #d1fae5', borderRadius: 10, padding: '10px 14px', fontSize: 14, outline: 'none', boxSizing: 'border-box', background: '#f0fdf4' }} />
+              style={{ width: '100%', border: '1.5px solid #d1fae5', borderRadius: 10, padding: '10px 14px', fontSize: 14, outline: 'none', boxSizing: 'border-box', background: '#f0fdf4', color: '#111827' }} />
           </div>
           {err && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}><AlertCircle size={14} />{err}</p>}
           <button type="submit" disabled={loading}
@@ -121,7 +120,7 @@ function MainApp({ session, perfil, onLogout }) {
     dashboard: <Dashboard tok={tok} />,
     compras: <ComprasModule tok={tok} />,
     almacen: <AlmacenModule tok={tok} />,
-    produccion: <ProduccionModuleNew tok={tok} />,
+    produccion: <ProduccionModule tok={tok} />,
     pdv: <PDVModule tok={tok} />,
     pedidos: <PedidosModule tok={tok} />,
     finanzas: <FinanzasModule tok={tok} />,
@@ -474,7 +473,7 @@ function PDVModule({ tok }) {
       </Card>
       <Card style={{ display: 'flex', flexDirection: 'column' }}>
         <CardHead title="Carrito" />
-        {ok && <div style={{ margin: '12px 16px', padding: 12, background: '#f0fdf4', borderRadius: 10, color: '#15803d', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}><Check size={16} />Venta registrada correctamente</div>}
+        {ok && <div style={{ margin: '12px 16px', padding: 12, background: '#f0fdf4', color: '#111827', borderRadius: 10, color: '#15803d', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}><Check size={16} />Venta registrada correctamente</div>}
         <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
           {carrito.length === 0 ? <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: 14, padding: '40px 0' }}>Tocá un producto para agregarlo</p> :
             carrito.map(i => (
