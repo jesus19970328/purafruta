@@ -431,15 +431,69 @@ function Remisiones({ tok }) {
 
 function Salidas({ tok }) {
   const [rows, setRows] = useState([]); const [prods, setProds] = useState([]); const [sucs, setSucs] = useState([]); const [loading, setLoading] = useState(true); const [show, setShow] = useState(false);
-  const [form, setForm] = useState({ producto_id: '', cantidad: '', unidad: 'kg', destino: 'produccion', sucursal_id: '' }); const [saving, setSaving] = useState(false);
-  const load = () => Promise.all([db.get('salidas_almacen', 'order=created_at.desc&limit=30&select=*,productos(nombre)', tok), db.get('productos', 'activo=eq.true&order=nombre', tok), db.get('sucursales', 'activa=eq.true', tok)]).then(([s, p, su]) => { setRows(Array.isArray(s) ? s : []); setProds(Array.isArray(p) ? p : []); setSucs(Array.isArray(su) ? su : []); setLoading(false); });
+  const [form, setForm] = useState({ producto_id: '', cantidad: '', unidad: 'kg', destino: 'produccion', sucursal_id: '', tipo_salida: 'salida', responsable: '' }); const [saving, setSaving] = useState(false);
+  const load = () => Promise.all([
+    db.get('salidas_almacen', 'order=created_at.desc&limit=30&select=*,productos(nombre)', tok),
+    db.get('productos', 'activo=eq.true&order=nombre', tok),
+    db.get('sucursales', 'activa=eq.true', tok)
+  ]).then(([s, p, su]) => { setRows(Array.isArray(s) ? s : []); setProds(Array.isArray(p) ? p : []); setSucs(Array.isArray(su) ? su : []); setLoading(false); });
   useEffect(() => { load(); }, [tok]);
-  const guardar = async () => { setSaving(true); await db.post('salidas_almacen', { ...form, sucursal_id: form.sucursal_id || null }, tok); setForm({ producto_id: '', cantidad: '', unidad: 'kg', destino: 'produccion', sucursal_id: '' }); setShow(false); setSaving(false); load(); };
+  const guardar = async () => {
+    setSaving(true);
+    await db.post('salidas_almacen', { ...form, sucursal_id: form.sucursal_id || null }, tok);
+    setForm({ producto_id: '', cantidad: '', unidad: 'kg', destino: 'produccion', sucursal_id: '', tipo_salida: 'salida', responsable: '' });
+    setShow(false); setSaving(false); load();
+  };
+  const colorTipo = { salida: 'blue', consumo: 'orange' };
   return (
     <Card>
       <CardHead title="Salidas de almacén" action={<Btn variant="ghost" onClick={() => setShow(!show)}><Plus size={14} />Nueva salida</Btn>} />
-      {show && <div style={{ padding: 16, background: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}><Grid cols={4}><Select label="Producto *" value={form.producto_id} onChange={e => setForm({ ...form, producto_id: e.target.value })}><option value="">Seleccionar...</option>{prods.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</Select><Input label="Cantidad *" type="number" value={form.cantidad} onChange={e => setForm({ ...form, cantidad: e.target.value })} /><Select label="Unidad" value={form.unidad} onChange={e => setForm({ ...form, unidad: e.target.value })}>{['kg','g','litro','ml','unidad','caja','bolsa','paquete'].map(u => <option key={u}>{u}</option>)}</Select><Select label="Destino" value={form.destino} onChange={e => setForm({ ...form, destino: e.target.value })}><option value="produccion">→ Producción</option><option value="sucursal">→ Sucursal</option></Select>{form.destino === 'sucursal' && <Select label="Sucursal" value={form.sucursal_id} onChange={e => setForm({ ...form, sucursal_id: e.target.value })}><option value="">Seleccionar...</option>{sucs.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}</Select>}</Grid><div style={{ display: 'flex', gap: 8, marginTop: 12 }}><Btn onClick={guardar} disabled={saving || !form.producto_id || !form.cantidad}>{saving ? 'Guardando...' : 'Registrar'}</Btn><Btn variant="secondary" onClick={() => setShow(false)}>Cancelar</Btn></div></div>}
-      <Table loading={loading} cols={['Fecha','Producto','Cantidad','Destino']} empty="Sin salidas registradas" rows={rows.map(r => [fd(r.fecha), r.productos?.nombre, `${r.cantidad} ${r.unidad}`, <Badge color={r.destino === 'produccion' ? 'blue' : 'purple'}>{r.destino}</Badge>])} />
+      {show && (
+        <div style={{ padding: 16, background: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
+          <Grid cols={3}>
+            <Select label="Tipo de salida *" value={form.tipo_salida} onChange={e => setForm({ ...form, tipo_salida: e.target.value })}>
+              <option value="salida">Salida normal</option>
+              <option value="consumo">Consumo interno</option>
+            </Select>
+            <Select label="Producto *" value={form.producto_id} onChange={e => setForm({ ...form, producto_id: e.target.value })}>
+              <option value="">Seleccionar...</option>
+              {prods.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </Select>
+            <Input label="Cantidad *" type="number" value={form.cantidad} onChange={e => setForm({ ...form, cantidad: e.target.value })} />
+            <Select label="Unidad" value={form.unidad} onChange={e => setForm({ ...form, unidad: e.target.value })}>
+              {['kg','g','litro','ml','unidad','caja','bolsa','paquete'].map(u => <option key={u}>{u}</option>)}
+            </Select>
+            <Select label="Destino" value={form.destino} onChange={e => setForm({ ...form, destino: e.target.value })}>
+              <option value="produccion">→ Producción</option>
+              <option value="sucursal">→ Sucursal</option>
+            </Select>
+            <Input label="Responsable *" value={form.responsable} onChange={e => setForm({ ...form, responsable: e.target.value })} placeholder="Nombre del personal" />
+            {form.destino === 'sucursal' && (
+              <Select label="Sucursal" value={form.sucursal_id} onChange={e => setForm({ ...form, sucursal_id: e.target.value })}>
+                <option value="">Seleccionar...</option>
+                {sucs.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              </Select>
+            )}
+          </Grid>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <Btn onClick={guardar} disabled={saving || !form.producto_id || !form.cantidad || !form.responsable}>
+              {saving ? 'Registrando...' : 'Registrar salida'}
+            </Btn>
+            <Btn variant="secondary" onClick={() => setShow(false)}>Cancelar</Btn>
+          </div>
+        </div>
+      )}
+      <Table loading={loading} cols={['Fecha','Producto','Cantidad','Tipo','Destino','Responsable']}
+        empty="Sin salidas registradas"
+        rows={rows.map(r => [
+          fd(r.fecha),
+          r.productos?.nombre,
+          `${r.cantidad} ${r.unidad}`,
+          <Badge color={colorTipo[r.tipo_salida] || 'gray'}>{r.tipo_salida || 'salida'}</Badge>,
+          <Badge color={r.destino === 'produccion' ? 'blue' : 'purple'}>{r.destino}</Badge>,
+          r.responsable || '—'
+        ])}
+      />
     </Card>
   );
 }
