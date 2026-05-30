@@ -1,9 +1,5 @@
 import { useState, useEffect } from "react";
 import { ShoppingCart, Package, Factory, Store, Truck, DollarSign, BarChart3, LogOut, Menu, X, Plus, Trash2, Check, AlertCircle, Search, Home, ChevronDown } from "lucide-react";
-import PDVModuleNew from "./PDVModule";
-import ProduccionModuleNew from "./ProduccionModule";
-import ActivosModule from "./ActivosModule";
-import ClientesModule from "./ClientesModule";
 
 const SB_URL = 'https://iepqhmxgdyuthcsmxadb.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllcHFobXhnZHl1dGhjc214YWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzODM1MjcsImV4cCI6MjA5NDk1OTUyN30.WWUs3xNpaMAYcvp2TAVuqQdCHGCsKIV0fdDF3Y45sLE';
@@ -31,8 +27,6 @@ const NAV = [
   { id: 'pedidos', label: 'Pedidos', icon: Truck, roles: ['admin','almacen','sucursal','produccion'] },
   { id: 'finanzas', label: 'Finanzas', icon: DollarSign, roles: ['admin','finanzas'] },
   { id: 'reportes', label: 'Reportes', icon: BarChart3, roles: ['admin','director','finanzas'] },
-  { id: 'activos', label: 'Activos fijos', icon: Package, roles: ['admin','almacen','produccion','sucursal','director'] },
-  { id: 'clientes', label: 'Clientes externos', icon: ShoppingCart, roles: ['admin','finanzas'] },
 ];
 
 export default function App() {
@@ -97,12 +91,12 @@ function LoginScreen({ onLogin }) {
           <div style={{ marginBottom: 16 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Email</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@email.com" required
-              style={{ width: '100%', border: '1.5px solid #d1fae5', borderRadius: 10, padding: '10px 14px', fontSize: 14, color: '#111827', outline: 'none', boxSizing: 'border-box', background: '#f0fdf4', color: '#111827' }} />
+              style={{ width: '100%', border: '1.5px solid #d1fae5', borderRadius: 10, padding: '10px 14px', fontSize: 14, outline: 'none', boxSizing: 'border-box', background: '#f0fdf4', color: '#111827' }} />
           </div>
           <div style={{ marginBottom: 20 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Contraseña</label>
             <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} placeholder="••••••••" required
-              style={{ width: '100%', border: '1.5px solid #d1fae5', borderRadius: 10, padding: '10px 14px', fontSize: 14, color: '#111827', outline: 'none', boxSizing: 'border-box', background: '#f0fdf4', color: '#111827' }} />
+              style={{ width: '100%', border: '1.5px solid #d1fae5', borderRadius: 10, padding: '10px 14px', fontSize: 14, outline: 'none', boxSizing: 'border-box', background: '#f0fdf4', color: '#111827' }} />
           </div>
           {err && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}><AlertCircle size={14} />{err}</p>}
           <button type="submit" disabled={loading}
@@ -119,28 +113,25 @@ function MainApp({ session, perfil, onLogout }) {
   const tok = session.access_token;
   const rol = perfil?.rol || 'admin';
   const nav = NAV.filter(n => n.roles.includes(rol));
-  const getDefaultMod = (r) => {
-    if (r === 'almacen') return 'almacen';
-    if (r === 'produccion') return 'produccion';
-    if (r === 'sucursal') return 'pdv';
-    if (r === 'finanzas') return 'finanzas';
+  const defaultMod = () => {
+    if (rol === 'almacen') return 'almacen';
+    if (rol === 'produccion') return 'produccion';
+    if (rol === 'sucursal') return 'pdv';
+    if (rol === 'finanzas') return 'finanzas';
     return 'dashboard';
   };
-  const [mod, setMod] = useState(getDefaultMod(rol));
+  const [mod, setMod] = useState(defaultMod());
   const [open, setOpen] = useState(false);
-  useEffect(() => { setMod(getDefaultMod(perfil?.rol || 'admin')); }, [perfil?.rol]);
 
   const panels = {
     dashboard: <Dashboard tok={tok} />,
     compras: <ComprasModule tok={tok} />,
     almacen: <AlmacenModule tok={tok} />,
-    produccion: <ProduccionModuleNew tok={tok} />,
-    pdv: <PDVModuleNew tok={tok} perfil={perfil} />,
-    pedidos: <PedidosModule tok={tok} perfil={perfil} />,
+    produccion: <ProduccionModule tok={tok} />,
+    pdv: <PDVModule tok={tok} />,
+    pedidos: <PedidosModule tok={tok} />,
     finanzas: <FinanzasModule tok={tok} />,
     reportes: <ReportesModule tok={tok} />,
-    activos: <ActivosModule tok={tok} perfil={perfil} />,
-    clientes: <ClientesModule tok={tok} />,
   };
 
   const s = { sidebar: { width: 240, background: '#fff', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', flexShrink: 0 }, navBtn: (active) => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, border: 'none', background: active ? '#f0fdf4' : 'transparent', color: active ? '#15803d' : '#6b7280', fontWeight: active ? 600 : 400, fontSize: 14, cursor: 'pointer', width: '100%', textAlign: 'left', transition: 'all .15s' }) };
@@ -188,8 +179,8 @@ const Btn = ({ onClick, children, variant = 'primary', disabled, style: sx }) =>
   const styles = { primary: { background: disabled ? '#86efac' : '#16a34a', color: '#fff' }, secondary: { background: '#fff', color: '#374151', border: '1px solid #e5e7eb' }, ghost: { background: '#f0fdf4', color: '#15803d' }, danger: { background: '#fef2f2', color: '#dc2626' } };
   return <button onClick={onClick} disabled={disabled} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: disabled ? 'not-allowed' : 'pointer', border: 'none', transition: 'all .15s', ...styles[variant], ...sx }}>{children}</button>;
 };
-const Input = ({ label, ...p }) => <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>{label && <label style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>{label}</label>}<input {...p} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#111827', outline: 'none', background: '#fafafa', ...(p.style || {}) }} /></div>;
-const Select = ({ label, children, ...p }) => <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>{label && <label style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>{label}</label>}<select {...p} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#111827', outline: 'none', background: '#fafafa', ...(p.style || {}) }}>{children}</select></div>;
+const Input = ({ label, ...p }) => <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>{label && <label style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>{label}</label>}<input {...p} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14, outline: 'none', background: '#fafafa', ...(p.style || {}) }} /></div>;
+const Select = ({ label, children, ...p }) => <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>{label && <label style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>{label}</label>}<select {...p} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14, outline: 'none', background: '#fafafa', ...(p.style || {}) }}>{children}</select></div>;
 const Badge = ({ children, color = 'gray' }) => {
   const c = { green: { bg: '#f0fdf4', text: '#15803d' }, yellow: { bg: '#fefce8', text: '#a16207' }, blue: { bg: '#eff6ff', text: '#1d4ed8' }, red: { bg: '#fef2f2', text: '#dc2626' }, purple: { bg: '#faf5ff', text: '#7c3aed' }, orange: { bg: '#fff7ed', text: '#c2410c' }, gray: { bg: '#f9fafb', text: '#6b7280' } };
   return <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 99, fontSize: 12, fontWeight: 500, background: c[color]?.bg, color: c[color]?.text }}>{children}</span>;
@@ -365,61 +356,9 @@ function AlmacenModule({ tok }) {
 }
 
 function InvAlmacen({ tok }) {
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [busqueda, setBusqueda] = useState('');
-
-  useEffect(() => {
-    fetch(`https://iepqhmxgdyuthcsmxadb.supabase.co/rest/v1/almacen_inventario?select=stock_actual,stock_minimo,productos(nombre,unidad)`, {
-      headers: {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllcHFobXhnZHl1dGhjc214YWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzODM1MjcsImV4cCI6MjA5NDk1OTUyN30.WWUs3xNpaMAYcvp2TAVuqQdCHGCsKIV0fdDF3Y45sLE',
-        'Authorization': `Bearer ${tok}`,
-        'Accept': 'application/json'
-      }
-    })
-    .then(r => r.json())
-    .then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); })
-    .catch(() => setLoading(false));
-  }, [tok]);
-
-  const filtrados = rows.filter(r => r.productos?.nombre?.toLowerCase().includes(busqueda.toLowerCase()));
-
-  return (
-    <Card>
-      <CardHead title={`Inventario de almacén${rows.length > 0 ? ' (' + rows.length + ' productos)' : ''}`} />
-      <div style={{ padding: '12px 18px', borderBottom: '1px solid #f3f4f6' }}>
-        <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar producto..." style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14, width: '100%', color: '#111827', background: '#fff', boxSizing: 'border-box', outline: 'none' }} />
-      </div>
-      {loading ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Cargando...</p> :
-        filtrados.length === 0 ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Sin resultados</p> :
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
-                {['Producto', 'Stock actual', 'Unidad', 'Estado'].map(h => (
-                  <th key={h} style={{ padding: '10px 18px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtrados.map((r, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid #f9fafb' }}>
-                  <td style={{ padding: '10px 18px', fontWeight: 500, color: '#111827' }}>{r.productos?.nombre}</td>
-                  <td style={{ padding: '10px 18px', fontWeight: 600, color: '#111827' }}>{r.stock_actual}</td>
-                  <td style={{ padding: '10px 18px', color: '#6b7280' }}>{r.productos?.unidad}</td>
-                  <td style={{ padding: '10px 18px' }}>
-                    <Badge color={parseFloat(r.stock_actual) === 0 ? 'yellow' : 'green'}>
-                      {parseFloat(r.stock_actual) === 0 ? 'Sin stock' : 'OK'}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      }
-    </Card>
-  );
+  const [rows, setRows] = useState([]); const [loading, setLoading] = useState(true);
+  useEffect(() => { db.get('almacen_inventario', 'select=*,productos(nombre,unidad)', tok).then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); }); }, [tok]);
+  return <Card><CardHead title="Inventario de almacén" /><Table loading={loading} cols={['Producto','Stock actual','Stock mínimo','Estado']} empty="El inventario se actualiza al registrar compras y salidas" rows={rows.map(r => [r.productos?.nombre, `${r.stock_actual} ${r.productos?.unidad}`, `${r.stock_minimo} ${r.productos?.unidad}`, <Badge color={r.stock_actual <= r.stock_minimo ? 'red' : 'green'}>{r.stock_actual <= r.stock_minimo ? 'Stock bajo' : 'OK'}</Badge>])} /></Card>;
 }
 
 function Remisiones({ tok }) {
@@ -684,7 +623,7 @@ function ReportesModule({ tok }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <p style={{ fontWeight: 600, fontSize: 15, color: '#374151', margin: 0 }}>Período:</p>
-        <input type="month" value={mes} onChange={e => setMes(e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#111827' }} />
+        <input type="month" value={mes} onChange={e => setMes(e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14 }} />
       </div>
       {loading ? <p style={{ textAlign: 'center', color: '#9ca3af', padding: 60 }}>Calculando estado de resultados...</p> : stats && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
