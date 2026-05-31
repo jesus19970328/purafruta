@@ -368,49 +368,150 @@ function InvAlmacen({ tok }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
+  const [sortCol, setSortCol] = useState('nombre');
+  const [sortDir, setSortDir] = useState('asc');
+  const [showAdd, setShowAdd] = useState(false);
+  const [ajusteId, setAjusteId] = useState(null);
+  const [ajusteVal, setAjusteVal] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [cats, setCats] = useState([]);
+  const [formProd, setFormProd] = useState({ nombre: '', unidad: 'kg', categoria_id: '', stock_inicial: '0' });
 
-  useEffect(() => {
-    fetch(`https://iepqhmxgdyuthcsmxadb.supabase.co/rest/v1/almacen_inventario?select=stock_actual,stock_minimo,productos(nombre,unidad)`, {
-      headers: {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllcHFobXhnZHl1dGhjc214YWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzODM1MjcsImV4cCI6MjA5NDk1OTUyN30.WWUs3xNpaMAYcvp2TAVuqQdCHGCsKIV0fdDF3Y45sLE',
-        'Authorization': `Bearer ${tok}`,
-        'Accept': 'application/json'
-      }
-    })
-    .then(r => r.json())
-    .then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); })
-    .catch(() => setLoading(false));
-  }, [tok]);
+  const load = () => {
+    Promise.all([
+      db.get('almacen_inventario', 'select=id,stock_actual,stock_minimo,producto_id,productos(nombre,unidad)', tok),
+      db.get('categorias', 'order=nombre', tok)
+    ]).then(([d, c]) => {
+      setRows(Array.isArray(d) ? d : []);
+      setCats(Array.isArray(c) ? c : []);
+      setLoading(false);
+    });
+  };
 
-  const filtrados = rows.filter(r => r.productos?.nombre?.toLowerCase().includes(busqueda.toLowerCase()));
+  useEffect(() => { load(); }, [tok]);
+
+  const toggleSort = (col) => {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortCol(col); setSortDir('asc'); }
+  };
+
+  const filtrados = rows
+    .filter(r => r.productos?.nombre?.toLowerCase().includes(busqueda.toLowerCase()))
+    .sort((a, b) => {
+      let va, vb;
+      if (sortCol === 'nombre') { va = a.productos?.nombre || ''; vb = b.productos?.nombre || ''; }
+      else if (sortCol === 'stock') { va = parseFloat(a.stock_actual) || 0; vb = parseFloat(b.stock_actual) || 0; }
+      else if (sortCol === 'unidad') { va = a.productos?.unidad || ''; vb = b.productos?.unidad || ''; }
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+  const SortTh = ({ col, label }) => (
+    <th onClick={() => toggleSort(col)} style={{ padding: '10px 18px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: sortCol === col ? '#16a34a' : '#9ca3af', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+      {label} {sortCol === col ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+    </th>
+  );
+
+  const guardarAjuste = async (id) => {
+    if (ajusteVal === '') return;
+    setSaving(true);
+    await db.patch('almacen_inventario', `id=eq.${id}`, { stock_actual: parseFloat(ajusteVal) }, tok);
+    setAjusteId(null); setAjusteVal(''); setSaving(false); load();
+  };
+
+  const agregarProducto = async () => {
+    if (!formProd.nombre) return;
+    setSaving(true);
+    const res = await db.post('productos', {
+      nombre: formProd.nombre,
+      unidad: formProd.unidad,
+      categoria_id: formProd.categoria_id || null,
+      activo: true
+    }, tok);
+    const prod = Array.isArray(res) ? res[0] : res;
+    if (prod?.id) {
+      await db.post('almacen_inventario', {
+        producto_id: prod.id,
+        stock_actual: parseFloat(formProd.stock_inicial) || 0,
+        stock_minimo: 0
+      }, tok);
+    }
+    setFormProd({ nombre: '', unidad: 'kg', categoria_id: '', stock_inicial: '0' });
+    setShowAdd(false); setSaving(false); load();
+  };
 
   return (
     <Card>
-      <CardHead title={`Inventario de almacén${rows.length > 0 ? ' (' + rows.length + ' productos)' : ''}`} />
+      <CardHead
+        title={`Inventario de almacén${rows.length > 0 ? ' (' + rows.length + ' productos)' : ''}`}
+        action={<Btn variant="ghost" onClick={() => setShowAdd(!showAdd)}><Plus size={14} />Agregar producto</Btn>}
+      />
+
+      {showAdd && (
+        <div style={{ padding: 16, background: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
+          <Grid cols={4}>
+            <Input label="Nombre *" value={formProd.nombre} onChange={e => setFormProd({ ...formProd, nombre: e.target.value })} placeholder="Nombre del producto" />
+            <Select label="Unidad" value={formProd.unidad} onChange={e => setFormProd({ ...formProd, unidad: e.target.value })}>
+              {['kg','g','litro','ml','unidad','caja','bolsa','paquete','rollo'].map(u => <option key={u}>{u}</option>)}
+            </Select>
+            <Select label="Categoría" value={formProd.categoria_id} onChange={e => setFormProd({ ...formProd, categoria_id: e.target.value })}>
+              <option value="">Sin categoría</option>
+              {cats.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </Select>
+            <Input label="Stock inicial" type="number" value={formProd.stock_inicial} onChange={e => setFormProd({ ...formProd, stock_inicial: e.target.value })} placeholder="0" />
+          </Grid>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <Btn onClick={agregarProducto} disabled={saving || !formProd.nombre}>{saving ? 'Guardando...' : 'Guardar producto'}</Btn>
+            <Btn variant="secondary" onClick={() => setShowAdd(false)}>Cancelar</Btn>
+          </div>
+        </div>
+      )}
+
       <div style={{ padding: '12px 18px', borderBottom: '1px solid #f3f4f6' }}>
         <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar producto..." style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14, width: '100%', color: '#111827', background: '#fff', boxSizing: 'border-box', outline: 'none' }} />
       </div>
+
       {loading ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Cargando...</p> :
         filtrados.length === 0 ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Sin resultados</p> :
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
-                {['Producto', 'Stock actual', 'Unidad', 'Estado'].map(h => (
-                  <th key={h} style={{ padding: '10px 18px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase' }}>{h}</th>
-                ))}
+                <SortTh col="nombre" label="Producto" />
+                <SortTh col="stock" label="Stock actual" />
+                <SortTh col="unidad" label="Unidad" />
+                <th style={{ padding: '10px 18px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase' }}>Estado</th>
+                <th style={{ padding: '10px 18px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase' }}>Ajuste</th>
               </tr>
             </thead>
             <tbody>
               {filtrados.map((r, i) => (
                 <tr key={i} style={{ borderBottom: '1px solid #f9fafb' }}>
                   <td style={{ padding: '10px 18px', fontWeight: 500, color: '#111827' }}>{r.productos?.nombre}</td>
-                  <td style={{ padding: '10px 18px', fontWeight: 600, color: '#111827' }}>{r.stock_actual}</td>
+                  <td style={{ padding: '10px 18px', fontWeight: 600, color: '#111827' }}>
+                    {ajusteId === r.id ? (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <input type="number" value={ajusteVal} onChange={e => setAjusteVal(e.target.value)}
+                          style={{ border: '1.5px solid #16a34a', borderRadius: 6, padding: '4px 8px', fontSize: 13, width: 80, color: '#111827' }} />
+                        <button onClick={() => guardarAjuste(r.id)} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>✓</button>
+                        <button onClick={() => { setAjusteId(null); setAjusteVal(''); }} style={{ background: '#f3f4f6', color: '#6b7280', border: 'none', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                      </div>
+                    ) : r.stock_actual}
+                  </td>
                   <td style={{ padding: '10px 18px', color: '#6b7280' }}>{r.productos?.unidad}</td>
                   <td style={{ padding: '10px 18px' }}>
                     <Badge color={parseFloat(r.stock_actual) === 0 ? 'yellow' : 'green'}>
                       {parseFloat(r.stock_actual) === 0 ? 'Sin stock' : 'OK'}
                     </Badge>
+                  </td>
+                  <td style={{ padding: '10px 18px' }}>
+                    {ajusteId !== r.id && (
+                      <button onClick={() => { setAjusteId(r.id); setAjusteVal(r.stock_actual); }}
+                        style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>
+                        Ajustar
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -432,19 +533,37 @@ function Remisiones({ tok }) {
 function Salidas({ tok }) {
   const [rows, setRows] = useState([]); const [prods, setProds] = useState([]); const [sucs, setSucs] = useState([]); const [loading, setLoading] = useState(true); const [show, setShow] = useState(false);
   const [form, setForm] = useState({ producto_id: '', cantidad: '', unidad: 'kg', destino: 'produccion', sucursal_id: '', tipo_salida: 'salida', responsable: '' }); const [saving, setSaving] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(null);
+
   const load = () => Promise.all([
     db.get('salidas_almacen', 'order=created_at.desc&limit=30&select=*,productos(nombre)', tok),
     db.get('productos', 'activo=eq.true&order=nombre', tok),
     db.get('sucursales', 'activa=eq.true', tok)
   ]).then(([s, p, su]) => { setRows(Array.isArray(s) ? s : []); setProds(Array.isArray(p) ? p : []); setSucs(Array.isArray(su) ? su : []); setLoading(false); });
+
   useEffect(() => { load(); }, [tok]);
+
   const guardar = async () => {
     setSaving(true);
     await db.post('salidas_almacen', { ...form, sucursal_id: form.sucursal_id || null }, tok);
     setForm({ producto_id: '', cantidad: '', unidad: 'kg', destino: 'produccion', sucursal_id: '', tipo_salida: 'salida', responsable: '' });
     setShow(false); setSaving(false); load();
   };
+
+  const eliminar = async (row) => {
+    // Reintegrar stock al inventario
+    const inv = await db.get('almacen_inventario', `producto_id=eq.${row.producto_id}`, tok);
+    if (Array.isArray(inv) && inv[0]) {
+      await db.patch('almacen_inventario', `producto_id=eq.${row.producto_id}`,
+        { stock_actual: parseFloat(inv[0].stock_actual) + parseFloat(row.cantidad) }, tok);
+    }
+    // Eliminar la salida
+    await db.del('salidas_almacen', `id=eq.${row.id}`, tok);
+    setConfirmDel(null); load();
+  };
+
   const colorTipo = { salida: 'blue', consumo: 'orange' };
+
   return (
     <Card>
       <CardHead title="Salidas de almacén" action={<Btn variant="ghost" onClick={() => setShow(!show)}><Plus size={14} />Nueva salida</Btn>} />
@@ -483,17 +602,58 @@ function Salidas({ tok }) {
           </div>
         </div>
       )}
-      <Table loading={loading} cols={['Fecha','Producto','Cantidad','Tipo','Destino','Responsable']}
-        empty="Sin salidas registradas"
-        rows={rows.map(r => [
-          fd(r.fecha),
-          r.productos?.nombre,
-          `${r.cantidad} ${r.unidad}`,
-          <Badge color={colorTipo[r.tipo_salida] || 'gray'}>{r.tipo_salida || 'salida'}</Badge>,
-          <Badge color={r.destino === 'produccion' ? 'blue' : 'purple'}>{r.destino}</Badge>,
-          r.responsable || '—'
-        ])}
-      />
+
+      {/* Modal confirmación eliminar */}
+      {confirmDel && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, maxWidth: 380, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <p style={{ fontWeight: 700, fontSize: 16, color: '#111827', margin: '0 0 8px' }}>¿Eliminar esta salida?</p>
+            <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 6px' }}>
+              <strong>{confirmDel.productos?.nombre}</strong> — {confirmDel.cantidad} {confirmDel.unidad}
+            </p>
+            <p style={{ fontSize: 13, color: '#16a34a', margin: '0 0 20px', background: '#f0fdf4', padding: '8px 12px', borderRadius: 8 }}>
+              ✓ Se reintegrarán <strong>{confirmDel.cantidad} {confirmDel.unidad}</strong> al inventario automáticamente.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <Btn variant="danger" onClick={() => eliminar(confirmDel)}>Sí, eliminar</Btn>
+              <Btn variant="secondary" onClick={() => setConfirmDel(null)}>Cancelar</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ overflowX: 'auto' }}>
+        {loading ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Cargando...</p> :
+          rows.length === 0 ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Sin salidas registradas</p> :
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
+                {['Fecha','Producto','Cantidad','Tipo','Destino','Responsable',''].map((c, i) => (
+                  <th key={i} style={{ padding: '10px 18px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: .5 }}>{c}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid #fafafa' }}>
+                  <td style={{ padding: '11px 18px', color: '#111827', fontWeight: 500 }}>{fd(r.fecha)}</td>
+                  <td style={{ padding: '11px 18px', color: '#6b7280' }}>{r.productos?.nombre}</td>
+                  <td style={{ padding: '11px 18px', color: '#6b7280' }}>{r.cantidad} {r.unidad}</td>
+                  <td style={{ padding: '11px 18px' }}><Badge color={colorTipo[r.tipo_salida] || 'gray'}>{r.tipo_salida || 'salida'}</Badge></td>
+                  <td style={{ padding: '11px 18px' }}><Badge color={r.destino === 'produccion' ? 'blue' : 'purple'}>{r.destino}</Badge></td>
+                  <td style={{ padding: '11px 18px', color: '#6b7280' }}>{r.responsable || '—'}</td>
+                  <td style={{ padding: '11px 18px' }}>
+                    <button onClick={() => setConfirmDel(r)}
+                      style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        }
+      </div>
     </Card>
   );
 }
