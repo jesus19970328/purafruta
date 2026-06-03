@@ -52,8 +52,57 @@ function Pedidos({ tok }) {
 
   useEffect(() => { load(); }, [tok]);
 
-  const addItem = () => setItems([...items, { producto_id: '', cantidad: '', precio_unitario: '' }]);
+  const addItem = () => setItems([...items, { producto_id: '', nombre_libre: '', cantidad: '', precio_unitario: '', _sugerencias: [], _mostrarSug: false }]);
   const updItem = (i, k, v) => { const n = [...items]; n[i][k] = v; setItems(n); };
+
+  const buscarProducto = (i, texto) => {
+    const n = [...items];
+    n[i].nombre_libre = texto;
+    n[i].producto_id = '';
+    if (texto.length >= 1) {
+      n[i]._sugerencias = prods.filter(p => p.nombre.toLowerCase().includes(texto.toLowerCase())).slice(0, 6);
+      n[i]._mostrarSug = true;
+    } else {
+      n[i]._sugerencias = [];
+      n[i]._mostrarSug = false;
+    }
+    setItems(n);
+  };
+
+  const elegirProducto = (i, prod) => {
+    const n = [...items];
+    n[i].producto_id = prod.id;
+    n[i].nombre_libre = prod.nombre;
+    n[i]._sugerencias = [];
+    n[i]._mostrarSug = false;
+    setItems(n);
+  };
+
+  const cerrarSugerencias = (i) => {
+    setTimeout(() => {
+      const n = [...items];
+      if (n[i]) { n[i]._mostrarSug = false; setItems(n); }
+    }, 200);
+  };
+
+  // Al guardar: si un item tiene nombre_libre pero no producto_id, crear el producto primero
+  const resolverItems = async () => {
+    const resueltos = [];
+    for (const it of items) {
+      if (!it.nombre_libre && !it.producto_id) continue;
+      if (it.producto_id) {
+        resueltos.push({ producto_id: it.producto_id, nombre_libre: it.nombre_libre, cantidad: parseFloat(it.cantidad), precio_unitario: parseFloat(it.precio_unitario), subtotal: parseFloat(it.cantidad) * parseFloat(it.precio_unitario) });
+      } else if (it.nombre_libre) {
+        // Crear producto nuevo en catálogo
+        const res = await db.post('productos', { nombre: it.nombre_libre, unidad: 'paquete', es_producido: true, activo: true }, tok);
+        const nuevo = Array.isArray(res) ? res[0] : res;
+        if (nuevo?.id) {
+          resueltos.push({ producto_id: nuevo.id, nombre_libre: it.nombre_libre, cantidad: parseFloat(it.cantidad), precio_unitario: parseFloat(it.precio_unitario), subtotal: parseFloat(it.cantidad) * parseFloat(it.precio_unitario) });
+        }
+      }
+    }
+    return resueltos;
+  };
   const total = items.reduce((s, i) => s + parseFloat(i.cantidad || 0) * parseFloat(i.precio_unitario || 0), 0);
 
   const vencimiento = (fecha) => {
@@ -67,7 +116,8 @@ function Pedidos({ tok }) {
     const res = await db.post('pedidos_externos', { ...form, total, fecha_vencimiento: form.medio_pago === 'credito' ? vencimiento(form.fecha) : form.fecha, total_pagado: form.medio_pago !== 'credito' ? total : 0, estado: form.medio_pago !== 'credito' ? 'pagado' : 'pendiente' }, tok);
     const ped = Array.isArray(res) ? res[0] : res;
     if (ped?.id) {
-      await db.post('pedidos_externos_detalle', items.map(i => ({ pedido_id: ped.id, producto_id: i.producto_id, cantidad: parseFloat(i.cantidad), precio_unitario: parseFloat(i.precio_unitario), subtotal: parseFloat(i.cantidad) * parseFloat(i.precio_unitario) })), tok);
+      const itemsResueltos = await resolverItems();
+      await db.post('pedidos_externos_detalle', itemsResueltos.map(i => ({ pedido_id: ped.id, producto_id: i.producto_id, cantidad: i.cantidad, precio_unitario: i.precio_unitario, subtotal: i.subtotal })), tok);
       setForm({ cliente_id: '', medio_pago: 'credito', observacion: '', fecha: new Date().toISOString().split('T')[0] });
       setItems([]); setShow(false); load();
     }
@@ -111,10 +161,38 @@ function Pedidos({ tok }) {
               </div>
               {items.map((it, i) => (
                 <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 8, marginBottom: 8 }}>
-                  <select value={it.producto_id} onChange={e => updItem(i, 'producto_id', e.target.value)} style={{ ...inp }}>
-                    <option value="">Producto...</option>
-                    {prods.filter(p => p.es_producido).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                  </select>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      value={it.nombre_libre}
+                      onChange={e => buscarProducto(i, e.target.value)}
+                      onBlur={() => cerrarSugerencias(i)}
+                      placeholder="Escribir o buscar producto..."
+                      style={{ ...inp }}
+                    />
+                    {it._mostrarSug && it._sugerencias.length > 0 && (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #16a34a', borderRadius: 10, zIndex: 50, maxHeight: 200, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
+                        {it._sugerencias.map(p => (
+                          <div key={p.id} onMouseDown={() => elegirProducto(i, p)}
+                            style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 14, color: '#111827', borderBottom: '1px solid #f3f4f6' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#f0fdf4'}
+                            onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                          >
+                            {p.nombre}
+                          </div>
+                        ))}
+                        {!prods.find(p => p.nombre.toLowerCase() === it.nombre_libre.toLowerCase()) && (
+                          <div style={{ padding: '10px 14px', fontSize: 13, color: '#16a34a', fontWeight: 600, background: '#f0fdf4', borderTop: '1px solid #d1fae5' }}>
+                            ✚ Crear "{it.nombre_libre}" como producto nuevo
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {it.nombre_libre && !it._mostrarSug && (
+                      <div style={{ fontSize: 11, marginTop: 3, color: it.producto_id ? '#16a34a' : '#f59e0b', fontWeight: 600 }}>
+                        {it.producto_id ? '✓ Producto del catálogo' : '✚ Se creará como producto nuevo al guardar'}
+                      </div>
+                    )}
+                  </div>
                   <input type="number" placeholder="Cantidad" value={it.cantidad} onChange={e => updItem(i, 'cantidad', e.target.value)} style={{ ...inp }} />
                   <input type="number" placeholder="Precio unit." value={it.precio_unitario} onChange={e => updItem(i, 'precio_unitario', e.target.value)} style={{ ...inp }} />
                   <button onClick={() => setItems(items.filter((_, j) => j !== i))} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 8, padding: '0 12px', cursor: 'pointer', fontSize: 18 }}>×</button>
