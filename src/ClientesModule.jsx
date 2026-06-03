@@ -242,13 +242,36 @@ function DetallePedido({ pedido, tok, onVolver }) {
   const [showPago, setShowPago] = useState(false);
   const [formPago, setFormPago] = useState({ monto: '', medio_pago: 'efectivo', observacion: '' });
   const [saving, setSaving] = useState(false);
+  const [editando, setEditando] = useState(false);
+  const [formEdit, setFormEdit] = useState({
+    fecha: pedido.fecha || '',
+    medio_pago: pedido.medio_pago || 'efectivo',
+    observacion: pedido.observacion || '',
+  });
+  const [itemsEdit, setItemsEdit] = useState([]);
+  const [prods, setProds] = useState([]);
 
   const load = () => Promise.all([
     db.get('pedidos_externos_detalle', `pedido_id=eq.${pedido.id}&select=*,productos(nombre)`, tok),
     db.get('pagos_externos', `pedido_id=eq.${pedido.id}&order=created_at.desc`, tok),
   ]).then(([d, p]) => { setDetalle(Array.isArray(d) ? d : []); setPagos(Array.isArray(p) ? p : []); });
 
-  useEffect(() => { load(); }, [pedido.id]);
+  useEffect(() => {
+    load();
+    db.get('productos', 'activo=eq.true&order=nombre', tok).then(d => setProds(Array.isArray(d) ? d : []));
+  }, [pedido.id]);
+
+  useEffect(() => {
+    if (detalle.length > 0) {
+      setItemsEdit(detalle.map(d => ({
+        id: d.id,
+        producto_id: d.producto_id,
+        nombre_libre: d.productos?.nombre || '',
+        cantidad: String(d.cantidad),
+        precio_unitario: String(d.precio_unitario),
+      })));
+    }
+  }, [detalle]);
 
   const registrarPago = async () => {
     if (!formPago.monto) return;
@@ -260,6 +283,42 @@ function DetallePedido({ pedido, tok, onVolver }) {
     await db.patch('pedidos_externos', `id=eq.${pedido.id}`, { total_pagado: nuevoPagado, estado: nuevoEstado }, tok);
     setFormPago({ monto: '', medio_pago: 'efectivo', observacion: '' });
     setShowPago(false); setSaving(false); load();
+  };
+
+  const guardarEdicion = async () => {
+    setSaving(true);
+    const nuevoTotal = itemsEdit.reduce((s, i) => s + parseFloat(i.cantidad || 0) * parseFloat(i.precio_unitario || 0), 0);
+    const nuevoEstado = nuevoTotal <= parseFloat(pedido.total_pagado || 0) ? 'pagado' : pedido.estado;
+    const nuevaFechaVenc = formEdit.medio_pago === 'credito'
+      ? (() => { const d = new Date(formEdit.fecha); d.setDate(d.getDate() + 15); return d.toISOString().split('T')[0]; })()
+      : formEdit.fecha;
+
+    // Actualizar cabecera del pedido
+    await db.patch('pedidos_externos', `id=eq.${pedido.id}`, {
+      fecha: formEdit.fecha,
+      medio_pago: formEdit.medio_pago,
+      observacion: formEdit.observacion,
+      total: nuevoTotal,
+      estado: formEdit.medio_pago !== 'credito' && nuevoTotal <= parseFloat(pedido.total_pagado || 0) ? 'pagado' : nuevoEstado,
+      fecha_vencimiento: nuevaFechaVenc,
+      total_pagado: formEdit.medio_pago !== 'credito' ? nuevoTotal : parseFloat(pedido.total_pagado || 0),
+    }, tok);
+
+    // Actualizar líneas de detalle
+    for (const it of itemsEdit) {
+      const subtotal = parseFloat(it.cantidad || 0) * parseFloat(it.precio_unitario || 0);
+      if (it.id) {
+        await db.patch('pedidos_externos_detalle', `id=eq.${it.id}`, {
+          cantidad: parseFloat(it.cantidad),
+          precio_unitario: parseFloat(it.precio_unitario),
+          subtotal,
+        }, tok);
+      }
+    }
+
+    setSaving(false);
+    setEditando(false);
+    onVolver(); // Volver para recargar el pedido con datos frescos
   };
 
   const gs = (n) => new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(n || 0) + ' Gs.';
@@ -361,10 +420,16 @@ function DetallePedido({ pedido, tok, onVolver }) {
     </div>
     </body></html>`;
 
-    const win = window.open('', '_blank', 'width=900,height=800');
-    win.document.write(html);
-    win.document.close();
-    win.focus();
+    // Generar como blob para evitar bloqueo de popups
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Pedido_${nroPedido}_${cliente.nombre || 'cliente'}.html`.replace(/\s+/g, '_');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   return (
@@ -377,10 +442,88 @@ function DetallePedido({ pedido, tok, onVolver }) {
           <p style={{ fontWeight: 800, fontSize: 17, color: '#111827', margin: '0 0 2px' }}>{cliente.nombre || 'Cliente'}</p>
           <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>Pedido #{nroPedido} · {fd(pedido.fecha)}</p>
         </div>
-        <button onClick={imprimirPDF} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-          📄 Descargar PDF
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => setEditando(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '10px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+            ✏️ Editar
+          </button>
+          <button onClick={imprimirPDF} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+            📄 Descargar PDF
+          </button>
+        </div>
       </div>
+
+      {/* ── MODAL DE EDICIÓN ── */}
+      {editando && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <p style={{ fontWeight: 800, fontSize: 16, color: '#111827', margin: 0 }}>✏️ Editar pedido #{nroPedido}</p>
+              <button onClick={() => setEditando(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af' }}>×</button>
+            </div>
+            <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Datos generales */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Fecha</label>
+                  <input type="date" value={formEdit.fecha} onChange={e => setFormEdit({ ...formEdit, fecha: e.target.value })} style={inp} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Medio de pago</label>
+                  <select value={formEdit.medio_pago} onChange={e => setFormEdit({ ...formEdit, medio_pago: e.target.value })} style={inp}>
+                    <option value="credito">🗓 Crédito 15 días</option>
+                    <option value="efectivo">💵 Efectivo al contado</option>
+                    <option value="transferencia">🏦 Transferencia</option>
+                    <option value="cheque">📝 Cheque</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Observación</label>
+                <input value={formEdit.observacion} onChange={e => setFormEdit({ ...formEdit, observacion: e.target.value })} placeholder="Opcional" style={inp} />
+              </div>
+              {formEdit.medio_pago !== 'credito' && (
+                <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#15803d', fontWeight: 600 }}>
+                  ✓ Al guardar, el pedido quedará marcado como <strong>pagado al contado</strong>
+                </div>
+              )}
+              {/* Líneas de productos */}
+              <div>
+                <p style={{ fontWeight: 700, fontSize: 14, color: '#374151', margin: '0 0 10px' }}>Productos del pedido</p>
+                {itemsEdit.map((it, i) => (
+                  <div key={i} style={{ background: '#f9fafb', borderRadius: 10, padding: 12, marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: 0 }}>{it.nombre_libre}</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>Cantidad</label>
+                        <input type="number" value={it.cantidad} onChange={e => { const n = [...itemsEdit]; n[i].cantidad = e.target.value; setItemsEdit(n); }} style={inp} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>Precio unitario (Gs.)</label>
+                        <input type="number" value={it.precio_unitario} onChange={e => { const n = [...itemsEdit]; n[i].precio_unitario = e.target.value; setItemsEdit(n); }} style={inp} />
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#16a34a' }}>
+                      Subtotal: {gs(parseFloat(it.cantidad || 0) * parseFloat(it.precio_unitario || 0))}
+                    </div>
+                  </div>
+                ))}
+                <div style={{ textAlign: 'right', fontWeight: 800, fontSize: 16, color: '#111827', paddingTop: 8, borderTop: '2px solid #e5e7eb' }}>
+                  Nuevo total: {gs(itemsEdit.reduce((s, i) => s + parseFloat(i.cantidad || 0) * parseFloat(i.precio_unitario || 0), 0))}
+                </div>
+              </div>
+              {/* Botones */}
+              <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
+                <button onClick={guardarEdicion} disabled={saving} style={{ flex: 1, background: saving ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '12px', fontSize: 15, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+                  {saving ? 'Guardando...' : '✓ Guardar cambios'}
+                </button>
+                <button onClick={() => setEditando(false)} style={{ background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '12px 20px', fontSize: 14, cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tarjeta de pedido estilo factura */}
       <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
@@ -532,6 +675,42 @@ function Clientes({ tok }) {
     setSaving(false);
   };
 
+  const guardarEdicion = async () => {
+    setSaving(true);
+    const nuevoTotal = itemsEdit.reduce((s, i) => s + parseFloat(i.cantidad || 0) * parseFloat(i.precio_unitario || 0), 0);
+    const nuevoEstado = nuevoTotal <= parseFloat(pedido.total_pagado || 0) ? 'pagado' : pedido.estado;
+    const nuevaFechaVenc = formEdit.medio_pago === 'credito'
+      ? (() => { const d = new Date(formEdit.fecha); d.setDate(d.getDate() + 15); return d.toISOString().split('T')[0]; })()
+      : formEdit.fecha;
+
+    // Actualizar cabecera del pedido
+    await db.patch('pedidos_externos', `id=eq.${pedido.id}`, {
+      fecha: formEdit.fecha,
+      medio_pago: formEdit.medio_pago,
+      observacion: formEdit.observacion,
+      total: nuevoTotal,
+      estado: formEdit.medio_pago !== 'credito' && nuevoTotal <= parseFloat(pedido.total_pagado || 0) ? 'pagado' : nuevoEstado,
+      fecha_vencimiento: nuevaFechaVenc,
+      total_pagado: formEdit.medio_pago !== 'credito' ? nuevoTotal : parseFloat(pedido.total_pagado || 0),
+    }, tok);
+
+    // Actualizar líneas de detalle
+    for (const it of itemsEdit) {
+      const subtotal = parseFloat(it.cantidad || 0) * parseFloat(it.precio_unitario || 0);
+      if (it.id) {
+        await db.patch('pedidos_externos_detalle', `id=eq.${it.id}`, {
+          cantidad: parseFloat(it.cantidad),
+          precio_unitario: parseFloat(it.precio_unitario),
+          subtotal,
+        }, tok);
+      }
+    }
+
+    setSaving(false);
+    setEditando(false);
+    onVolver(); // Volver para recargar el pedido con datos frescos
+  };
+
   const gs = (n) => new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(n || 0) + ' Gs.';
   const inp = { border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '11px 14px', fontSize: 14, color: '#111827', background: '#fff', width: '100%', boxSizing: 'border-box', outline: 'none' };
 
@@ -578,6 +757,42 @@ function CuentasPendientes({ tok }) {
     db.get('pedidos_externos', "estado=in.(pendiente,parcial,vencido)&order=fecha_vencimiento&select=*,clientes_externos(nombre,telefono)", tok)
       .then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
   }, [tok]);
+
+  const guardarEdicion = async () => {
+    setSaving(true);
+    const nuevoTotal = itemsEdit.reduce((s, i) => s + parseFloat(i.cantidad || 0) * parseFloat(i.precio_unitario || 0), 0);
+    const nuevoEstado = nuevoTotal <= parseFloat(pedido.total_pagado || 0) ? 'pagado' : pedido.estado;
+    const nuevaFechaVenc = formEdit.medio_pago === 'credito'
+      ? (() => { const d = new Date(formEdit.fecha); d.setDate(d.getDate() + 15); return d.toISOString().split('T')[0]; })()
+      : formEdit.fecha;
+
+    // Actualizar cabecera del pedido
+    await db.patch('pedidos_externos', `id=eq.${pedido.id}`, {
+      fecha: formEdit.fecha,
+      medio_pago: formEdit.medio_pago,
+      observacion: formEdit.observacion,
+      total: nuevoTotal,
+      estado: formEdit.medio_pago !== 'credito' && nuevoTotal <= parseFloat(pedido.total_pagado || 0) ? 'pagado' : nuevoEstado,
+      fecha_vencimiento: nuevaFechaVenc,
+      total_pagado: formEdit.medio_pago !== 'credito' ? nuevoTotal : parseFloat(pedido.total_pagado || 0),
+    }, tok);
+
+    // Actualizar líneas de detalle
+    for (const it of itemsEdit) {
+      const subtotal = parseFloat(it.cantidad || 0) * parseFloat(it.precio_unitario || 0);
+      if (it.id) {
+        await db.patch('pedidos_externos_detalle', `id=eq.${it.id}`, {
+          cantidad: parseFloat(it.cantidad),
+          precio_unitario: parseFloat(it.precio_unitario),
+          subtotal,
+        }, tok);
+      }
+    }
+
+    setSaving(false);
+    setEditando(false);
+    onVolver(); // Volver para recargar el pedido con datos frescos
+  };
 
   const gs = (n) => new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(n || 0) + ' Gs.';
   const fd = (d) => d ? new Date(d).toLocaleDateString('es-PY') : '—';
