@@ -265,42 +265,224 @@ function DetallePedido({ pedido, tok, onVolver }) {
   const gs = (n) => new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(n || 0) + ' Gs.';
   const fd = (d) => d ? new Date(d).toLocaleDateString('es-PY') : '—';
   const inp = { border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '11px 14px', fontSize: 14, color: '#111827', background: '#fff', width: '100%', boxSizing: 'border-box', outline: 'none' };
+  const cliente = pedido.clientes_externos || {};
+  const saldo = parseFloat(pedido.saldo || 0);
+  const estadoColor = { pendiente: '#f59e0b', parcial: '#f97316', pagado: '#16a34a', vencido: '#dc2626' };
+  const nroPedido = String(pedido.id).slice(-6).toUpperCase();
+
+  const imprimirPDF = () => {
+    const filas = detalle.map(d => `
+      <tr>
+        <td style="padding:11px 14px;border-bottom:1px solid #f3f4f6;font-size:13px;color:#111827;">${d.productos?.nombre || '—'}</td>
+        <td style="padding:11px 14px;border-bottom:1px solid #f3f4f6;font-size:13px;text-align:center;color:#374151;">${d.cantidad}</td>
+        <td style="padding:11px 14px;border-bottom:1px solid #f3f4f6;font-size:13px;text-align:right;color:#374151;">${gs(d.precio_unitario)}</td>
+        <td style="padding:11px 14px;border-bottom:1px solid #f3f4f6;font-size:13px;text-align:right;font-weight:700;color:#111827;">${gs(d.subtotal)}</td>
+      </tr>`).join('');
+
+    const historialPagos = pagos.length > 0 ? `
+      <div style="margin-top:24px;">
+        <p style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Historial de pagos</p>
+        ${pagos.map(p => `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f3f4f6;font-size:13px;"><span style="color:#6b7280;">${fd(p.fecha)} · ${p.medio_pago}</span><span style="font-weight:700;color:#16a34a;">${gs(p.monto)}</span></div>`).join('')}
+      </div>` : '';
+
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Pedido ${nroPedido} — Purafruta</title>
+    <style>
+      *{margin:0;padding:0;box-sizing:border-box;}
+      body{font-family:'Segoe UI',Arial,sans-serif;color:#111827;background:#fff;padding:40px;}
+      @media print{@page{margin:20mm;} body{padding:0;} .no-print{display:none!important;}}
+    </style></head><body>
+    <!-- HEADER -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:24px;border-bottom:3px solid #16a34a;margin-bottom:32px;">
+      <div>
+        <div style="font-size:28px;font-weight:900;color:#16a34a;letter-spacing:-1px;">🍊 PURAFRUTA</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:4px;">Jugos naturales · Açaí · Ensaladas de frutas</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:2px;">Asunción, Paraguay</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:22px;font-weight:800;color:#111827;letter-spacing:2px;">PEDIDO</div>
+        <div style="font-size:14px;color:#16a34a;font-weight:700;margin-top:4px;">#${nroPedido}</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:6px;">Fecha: <strong>${fd(pedido.fecha)}</strong></div>
+        ${pedido.fecha_vencimiento ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">Vencimiento: <strong>${fd(pedido.fecha_vencimiento)}</strong></div>` : ''}
+        <div style="margin-top:8px;display:inline-block;padding:4px 14px;border-radius:99px;font-size:12px;font-weight:700;background:${pedido.estado === 'pagado' ? '#f0fdf4' : pedido.estado === 'vencido' ? '#fef2f2' : '#fefce8'};color:${estadoColor[pedido.estado] || '#a16207'};">${(pedido.estado || '').toUpperCase()}</div>
+      </div>
+    </div>
+
+    <!-- DATOS CLIENTE -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px;">
+      <div style="background:#f9fafb;border-radius:12px;padding:18px;">
+        <p style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Cliente</p>
+        <p style="font-size:16px;font-weight:800;color:#111827;margin-bottom:6px;">${cliente.nombre || '—'}</p>
+        ${cliente.ruc ? `<p style="font-size:13px;color:#6b7280;margin-bottom:3px;">RUC: ${cliente.ruc}</p>` : ''}
+        ${cliente.telefono ? `<p style="font-size:13px;color:#6b7280;margin-bottom:3px;">📞 ${cliente.telefono}</p>` : ''}
+        ${cliente.email ? `<p style="font-size:13px;color:#6b7280;margin-bottom:3px;">✉️ ${cliente.email}</p>` : ''}
+        ${cliente.direccion ? `<p style="font-size:13px;color:#6b7280;">📍 ${cliente.direccion}</p>` : ''}
+      </div>
+      <div style="background:#f9fafb;border-radius:12px;padding:18px;">
+        <p style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Resumen de pago</p>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;"><span style="color:#6b7280;">Medio de pago</span><span style="font-weight:600;color:#111827;">${pedido.medio_pago || '—'}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;"><span style="color:#6b7280;">Total pedido</span><span style="font-weight:700;color:#111827;">${gs(pedido.total)}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;"><span style="color:#6b7280;">Pagado</span><span style="font-weight:700;color:#16a34a;">${gs(pedido.total_pagado)}</span></div>
+        ${saldo > 0 ? `<div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid #e5e7eb;margin-top:6px;font-size:14px;"><span style="font-weight:700;color:#dc2626;">Saldo pendiente</span><span style="font-weight:800;color:#dc2626;">${gs(saldo)}</span></div>` : `<div style="text-align:center;margin-top:10px;padding:8px;background:#f0fdf4;border-radius:8px;font-size:13px;font-weight:700;color:#16a34a;">✓ PAGADO COMPLETAMENTE</div>`}
+      </div>
+    </div>
+
+    <!-- TABLA PRODUCTOS -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+      <thead>
+        <tr style="background:#16a34a;color:#fff;">
+          <th style="padding:12px 14px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-radius:8px 0 0 0;">Producto</th>
+          <th style="padding:12px 14px;text-align:center;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Cantidad</th>
+          <th style="padding:12px 14px;text-align:right;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Precio unit.</th>
+          <th style="padding:12px 14px;text-align:right;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-radius:0 8px 0 0;">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>${filas}</tbody>
+      <tfoot>
+        <tr style="background:#f9fafb;">
+          <td colspan="3" style="padding:14px;text-align:right;font-size:15px;font-weight:700;color:#111827;">TOTAL</td>
+          <td style="padding:14px;text-align:right;font-size:18px;font-weight:900;color:#16a34a;">${gs(pedido.total)}</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    ${pedido.observacion ? `<div style="background:#fefce8;border-left:4px solid #f59e0b;border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:24px;"><p style="font-size:12px;font-weight:700;color:#a16207;margin-bottom:4px;text-transform:uppercase;">Observación</p><p style="font-size:13px;color:#374151;">${pedido.observacion}</p></div>` : ''}
+
+    ${historialPagos}
+
+    <!-- FOOTER -->
+    <div style="margin-top:40px;padding-top:20px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:11px;color:#9ca3af;">Documento generado por Purafruta Sistema de Gestión · ${new Date().toLocaleString('es-PY')}</div>
+      <div style="font-size:12px;font-weight:700;color:#16a34a;">🍊 PURAFRUTA</div>
+    </div>
+
+    <div class="no-print" style="text-align:center;margin-top:32px;">
+      <button onclick="window.print()" style="padding:12px 32px;background:#16a34a;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-right:10px;">🖨️ Imprimir / Guardar PDF</button>
+      <button onclick="window.close()" style="padding:12px 20px;background:#f3f4f6;color:#374151;border:none;border-radius:10px;font-size:15px;cursor:pointer;">Cerrar</button>
+    </div>
+    </body></html>`;
+
+    const win = window.open('', '_blank', 'width=900,height=800');
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+  };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* Barra superior */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <button onClick={onVolver} style={{ background: '#f3f4f6', border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 14, cursor: 'pointer', fontWeight: 600, color: '#374151' }}>← Volver</button>
-        <div><p style={{ fontWeight: 700, fontSize: 16, color: '#111827', margin: 0 }}>{pedido.clientes_externos?.nombre || 'Cliente'}</p><p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>{fd(pedido.fecha)}</p></div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
-        {[['Total pedido', gs(pedido.total), '#f0fdf4', '#15803d'], ['Pagado', gs(pedido.total_pagado), '#eff6ff', '#1d4ed8'], ['Saldo pendiente', gs(pedido.saldo), pedido.saldo > 0 ? '#fef2f2' : '#f0fdf4', pedido.saldo > 0 ? '#dc2626' : '#15803d'], ['Vencimiento', fd(pedido.fecha_vencimiento), '#fefce8', '#a16207']].map(([l, v, bg, fg]) => (
-          <div key={l} style={{ background: bg, borderRadius: 12, padding: 14 }}>
-            <p style={{ fontSize: 11, color: fg, margin: '0 0 4px', fontWeight: 600 }}>{l}</p>
-            <p style={{ fontSize: 16, fontWeight: 700, color: fg, margin: 0 }}>{v}</p>
-          </div>
-        ))}
-      </div>
-
-      <Card>
-        <CardHead title="Productos del pedido" />
-        <div style={{ padding: 14 }}>
-          {detalle.map((d, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f3f4f6', fontSize: 14 }}>
-              <span>{d.cantidad} x {d.productos?.nombre}</span>
-              <span style={{ fontWeight: 600 }}>{gs(d.subtotal)}</span>
-            </div>
-          ))}
+        <div style={{ flex: 1 }}>
+          <p style={{ fontWeight: 800, fontSize: 17, color: '#111827', margin: '0 0 2px' }}>{cliente.nombre || 'Cliente'}</p>
+          <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>Pedido #{nroPedido} · {fd(pedido.fecha)}</p>
         </div>
-      </Card>
+        <button onClick={imprimirPDF} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+          📄 Descargar PDF
+        </button>
+      </div>
 
-      {pedido.saldo > 0 && (
+      {/* Tarjeta de pedido estilo factura */}
+      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+
+        {/* Header verde */}
+        <div style={{ background: 'linear-gradient(135deg,#16a34a,#22c55e)', padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <p style={{ fontWeight: 900, fontSize: 20, color: '#fff', margin: '0 0 2px', letterSpacing: -0.5 }}>🍊 PURAFRUTA</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', margin: 0 }}>Jugos naturales · Açaí · Ensaladas de frutas</p>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: 1 }}>Pedido N°</p>
+            <p style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: '0 0 4px' }}>#{nroPedido}</p>
+            <span style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: 99, padding: '3px 12px', fontSize: 12, fontWeight: 700 }}>
+              {(pedido.estado || '').toUpperCase()}
+            </span>
+          </div>
+        </div>
+
+        {/* Info cliente + pago */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, borderBottom: '1px solid #f3f4f6' }}>
+          <div style={{ padding: '18px 24px', borderRight: '1px solid #f3f4f6' }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>Cliente</p>
+            <p style={{ fontWeight: 800, fontSize: 15, color: '#111827', margin: '0 0 5px' }}>{cliente.nombre || '—'}</p>
+            {cliente.ruc && <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 3px' }}>RUC: {cliente.ruc}</p>}
+            {cliente.telefono && <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 3px' }}>📞 {cliente.telefono}</p>}
+            {cliente.email && <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 3px' }}>✉️ {cliente.email}</p>}
+            {cliente.direccion && <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>📍 {cliente.direccion}</p>}
+          </div>
+          <div style={{ padding: '18px 24px' }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>Detalle de pago</p>
+            {[
+              ['Fecha', fd(pedido.fecha)],
+              pedido.fecha_vencimiento ? ['Vencimiento', fd(pedido.fecha_vencimiento)] : null,
+              ['Medio de pago', pedido.medio_pago || '—'],
+            ].filter(Boolean).map(([l, v]) => (
+              <div key={l} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
+                <span style={{ color: '#6b7280' }}>{l}</span>
+                <span style={{ fontWeight: 600, color: '#111827' }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Tabla productos */}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
+                {['Producto', 'Cantidad', 'Precio unitario', 'Subtotal'].map((h, i) => (
+                  <th key={h} style={{ padding: '10px 16px', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: .5, textAlign: i === 0 ? 'left' : 'right' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {detalle.map((d, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid #f9fafb' }}>
+                  <td style={{ padding: '13px 16px', fontSize: 14, fontWeight: 500, color: '#111827' }}>{d.productos?.nombre || '—'}</td>
+                  <td style={{ padding: '13px 16px', fontSize: 14, color: '#374151', textAlign: 'right' }}>{d.cantidad}</td>
+                  <td style={{ padding: '13px 16px', fontSize: 14, color: '#374151', textAlign: 'right' }}>{gs(d.precio_unitario)}</td>
+                  <td style={{ padding: '13px 16px', fontSize: 14, fontWeight: 700, color: '#111827', textAlign: 'right' }}>{gs(d.subtotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop: '2px solid #e5e7eb', background: '#f9fafb' }}>
+                <td colSpan={3} style={{ padding: '14px 16px', fontSize: 15, fontWeight: 700, color: '#374151', textAlign: 'right' }}>TOTAL</td>
+                <td style={{ padding: '14px 16px', fontSize: 20, fontWeight: 900, color: '#16a34a', textAlign: 'right' }}>{gs(pedido.total)}</td>
+              </tr>
+              {parseFloat(pedido.total_pagado) > 0 && (
+                <tr style={{ background: '#f9fafb' }}>
+                  <td colSpan={3} style={{ padding: '8px 16px', fontSize: 13, color: '#6b7280', textAlign: 'right' }}>Pagado</td>
+                  <td style={{ padding: '8px 16px', fontSize: 14, fontWeight: 700, color: '#16a34a', textAlign: 'right' }}>{gs(pedido.total_pagado)}</td>
+                </tr>
+              )}
+              {saldo > 0 && (
+                <tr style={{ background: '#fef2f2' }}>
+                  <td colSpan={3} style={{ padding: '10px 16px', fontSize: 14, fontWeight: 700, color: '#dc2626', textAlign: 'right' }}>Saldo pendiente</td>
+                  <td style={{ padding: '10px 16px', fontSize: 16, fontWeight: 900, color: '#dc2626', textAlign: 'right' }}>{gs(saldo)}</td>
+                </tr>
+              )}
+            </tfoot>
+          </table>
+        </div>
+
+        {/* Observación */}
+        {pedido.observacion && (
+          <div style={{ margin: '0 16px 16px', background: '#fefce8', borderLeft: '4px solid #f59e0b', borderRadius: '0 8px 8px 0', padding: '10px 14px' }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#a16207', margin: '0 0 3px', textTransform: 'uppercase' }}>Observación</p>
+            <p style={{ fontSize: 13, color: '#374151', margin: 0 }}>{pedido.observacion}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Registrar pago */}
+      {saldo > 0 && (
         <Card>
           <CardHead title="Registrar pago" action={<button onClick={() => setShowPago(!showPago)} style={{ background: '#f0fdf4', color: '#15803d', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>+ Pago</button>} />
           {showPago && (
             <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}><label style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Monto (Gs.) *</label><input type="number" value={formPago.monto} onChange={e => setFormPago({ ...formPago, monto: e.target.value })} placeholder={gs(pedido.saldo)} style={inp} /></div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}><label style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Monto (Gs.) *</label><input type="number" value={formPago.monto} onChange={e => setFormPago({ ...formPago, monto: e.target.value })} placeholder={gs(saldo)} style={inp} /></div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}><label style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Medio de pago</label><select value={formPago.medio_pago} onChange={e => setFormPago({ ...formPago, medio_pago: e.target.value })} style={inp}><option value="efectivo">💵 Efectivo</option><option value="transferencia">🏦 Transferencia</option><option value="cheque">📝 Cheque</option></select></div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}><label style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Observación</label><input value={formPago.observacion} onChange={e => setFormPago({ ...formPago, observacion: e.target.value })} placeholder="Opcional" style={inp} /></div>
