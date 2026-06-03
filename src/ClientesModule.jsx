@@ -46,7 +46,7 @@ function Pedidos({ tok }) {
 
   const load = () => Promise.all([
     db.get('pedidos_externos', 'order=created_at.desc&limit=50&select=*,clientes_externos(nombre,telefono)', tok),
-    db.get('clientes_externos', 'activo=eq.true&order=nombre', tok),
+    db.get('clientes_externos', 'activo=neq.false&order=nombre', tok),
     db.get('productos', 'activo=eq.true&order=nombre', tok),
   ]).then(([p, c, pr]) => { setPedidos(Array.isArray(p) ? p : []); setClientes(Array.isArray(c) ? c : []); setProds(Array.isArray(pr) ? pr : []); setLoading(false); });
 
@@ -254,15 +254,22 @@ function Clientes({ tok }) {
   const [form, setForm] = useState({ nombre: '', ruc: '', telefono: '', direccion: '', email: '', limite_credito: '' });
   const [saving, setSaving] = useState(false);
 
-  const load = () => db.get('clientes_externos', 'order=nombre', tok).then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
+  const load = () => db.get('clientes_externos', 'order=nombre&activo=neq.false', tok).then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
   useEffect(() => { load(); }, [tok]);
 
   const guardar = async () => {
     if (!form.nombre) return;
     setSaving(true);
-    await db.post('clientes_externos', { ...form, limite_credito: parseFloat(form.limite_credito || 0) }, tok);
-    setForm({ nombre: '', ruc: '', telefono: '', direccion: '', email: '', limite_credito: '' });
-    setShow(false); setSaving(false); load();
+    const res = await db.post('clientes_externos', { ...form, activo: true, limite_credito: parseFloat(form.limite_credito || 0) }, tok);
+    const nuevo = Array.isArray(res) ? res[0] : res;
+    if (nuevo?.id) {
+      setForm({ nombre: '', ruc: '', telefono: '', direccion: '', email: '', limite_credito: '' });
+      setShow(false);
+      load();
+    } else {
+      alert('Error al guardar el cliente. Verificá los datos e intentá de nuevo.');
+    }
+    setSaving(false);
   };
 
   const gs = (n) => new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(n || 0) + ' Gs.';
