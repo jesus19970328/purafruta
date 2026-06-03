@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ShoppingCart, Package, Factory, Store, Truck, DollarSign, BarChart3, LogOut, Menu, X, Plus, Trash2, Check, AlertCircle, Search, Home, ChevronDown } from "lucide-react";
 import PDVModuleNew from "./PDVModule";
 import ProduccionModuleNew from "./ProduccionModule";
@@ -39,12 +39,57 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
+  const refreshTimer = useRef(null);
+
+  // ── AUTO-REFRESH DEL TOKEN ─────────────────────────────
+  const scheduleRefresh = useCallback((s) => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    if (!s?.expires_at) return;
+    const delay = (s.expires_at * 1000) - Date.now() - 5 * 60 * 1000; // 5 min antes
+    if (delay <= 0) { doRefresh(s.refresh_token); return; }
+    refreshTimer.current = setTimeout(() => doRefresh(s.refresh_token), delay);
+  }, []);
+
+  const doRefresh = async (refreshToken) => {
+    if (!refreshToken) { doLogout(); return; }
+    try {
+      const res = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      if (!res.ok) throw new Error('refresh failed');
+      const data = await res.json();
+      const newSess = {
+        ...data,
+        expires_at: Math.floor(Date.now() / 1000) + data.expires_in,
+      };
+      localStorage.setItem('pf_sess', JSON.stringify(newSess));
+      setSession(newSess);
+      scheduleRefresh(newSess);
+    } catch {
+      doLogout();
+    }
+  };
+
+  const doLogout = () => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    localStorage.removeItem('pf_sess');
+    setSession(null);
+    setPerfil(null);
+  };
+  // ──────────────────────────────────────────────────────
 
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem('pf_sess') || 'null');
-      if (s?.access_token) { setSession(s); loadPerfil(s.access_token, s.user.id); } else setLoading(false);
+      if (s?.access_token) {
+        setSession(s);
+        loadPerfil(s.access_token, s.user.id);
+        scheduleRefresh(s);
+      } else setLoading(false);
     } catch { setLoading(false); }
+    return () => { if (refreshTimer.current) clearTimeout(refreshTimer.current); };
   }, []);
 
   const loadPerfil = async (tok, uid) => {
@@ -55,8 +100,15 @@ export default function App() {
     setLoading(false);
   };
 
-  const onLogin = (s) => { localStorage.setItem('pf_sess', JSON.stringify(s)); setSession(s); loadPerfil(s.access_token, s.user.id); };
-  const onLogout = async () => { if (session) await db.logout(session.access_token); localStorage.removeItem('pf_sess'); setSession(null); setPerfil(null); };
+  const onLogin = (s) => {
+    // Guardar con expires_at para que el auto-refresh funcione
+    const sess = { ...s, expires_at: Math.floor(Date.now() / 1000) + (s.expires_in || 3600) };
+    localStorage.setItem('pf_sess', JSON.stringify(sess));
+    setSession(sess);
+    loadPerfil(sess.access_token, sess.user.id);
+    scheduleRefresh(sess);
+  };
+  const onLogout = async () => { if (session) await db.logout(session.access_token); doLogout(); };
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0fdf4', color: '#111827' }}>
