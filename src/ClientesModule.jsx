@@ -250,6 +250,15 @@ function DetallePedido({ pedido, tok, onVolver }) {
   });
   const [itemsEdit, setItemsEdit] = useState([]);
   const [prods, setProds] = useState([]);
+  const [showPagModal, setShowPagModal] = useState(false);
+  const [formPag, setFormPag] = useState({
+    metodo: 'efectivo',
+    monto: '',
+    banco: '',
+    comprobante: '',
+    fecha_transferencia: new Date().toISOString().split('T')[0],
+    observacion: '',
+  });
 
   const load = () => Promise.all([
     db.get('pedidos_externos_detalle', `pedido_id=eq.${pedido.id}&select=*,productos(nombre)`, tok),
@@ -285,6 +294,36 @@ function DetallePedido({ pedido, tok, onVolver }) {
     setShowPago(false); setSaving(false); load();
   };
 
+  const confirmarPago = async () => {
+    if (!formPag.monto) return;
+    setSaving(true);
+    const monto = parseFloat(formPag.monto);
+    const pagado = parseFloat(pedido.total_pagado || 0) + monto;
+    const nuevoEstado = pagado >= parseFloat(pedido.total) ? 'pagado' : 'parcial';
+
+    // Guardar pago con todos los datos
+    await db.post('pagos_externos', {
+      pedido_id: pedido.id,
+      monto,
+      medio_pago: formPag.metodo,
+      banco: formPag.metodo === 'transferencia' ? formPag.banco : null,
+      comprobante: formPag.metodo === 'transferencia' ? formPag.comprobante : null,
+      fecha: formPag.metodo === 'transferencia' ? formPag.fecha_transferencia : new Date().toISOString().split('T')[0],
+      observacion: formPag.observacion || null,
+    }, tok);
+
+    // Actualizar pedido
+    await db.patch('pedidos_externos', `id=eq.${pedido.id}`, {
+      total_pagado: pagado,
+      estado: nuevoEstado,
+    }, tok);
+
+    setFormPag({ metodo: 'efectivo', monto: '', banco: '', comprobante: '', fecha_transferencia: new Date().toISOString().split('T')[0], observacion: '' });
+    setShowPagModal(false);
+    setSaving(false);
+    load();
+  };
+
   const guardarEdicion = async () => {
     setSaving(true);
     const nuevoTotal = itemsEdit.reduce((s, i) => s + parseFloat(i.cantidad || 0) * parseFloat(i.precio_unitario || 0), 0);
@@ -299,9 +338,8 @@ function DetallePedido({ pedido, tok, onVolver }) {
       medio_pago: formEdit.medio_pago,
       observacion: formEdit.observacion,
       total: nuevoTotal,
-      estado: formEdit.medio_pago !== 'credito' && nuevoTotal <= parseFloat(pedido.total_pagado || 0) ? 'pagado' : nuevoEstado,
+      estado: nuevoEstado,
       fecha_vencimiento: nuevaFechaVenc,
-      total_pagado: formEdit.medio_pago !== 'credito' ? nuevoTotal : parseFloat(pedido.total_pagado || 0),
     }, tok);
 
     // Actualizar líneas de detalle
@@ -480,11 +518,7 @@ function DetallePedido({ pedido, tok, onVolver }) {
                 <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Observación</label>
                 <input value={formEdit.observacion} onChange={e => setFormEdit({ ...formEdit, observacion: e.target.value })} placeholder="Opcional" style={inp} />
               </div>
-              {formEdit.medio_pago !== 'credito' && (
-                <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#15803d', fontWeight: 600 }}>
-                  ✓ Al guardar, el pedido quedará marcado como <strong>pagado al contado</strong>
-                </div>
-              )}
+
               {/* Líneas de productos */}
               <div>
                 <p style={{ fontWeight: 700, fontSize: 14, color: '#374151', margin: '0 0 10px' }}>Productos del pedido</p>
@@ -617,32 +651,124 @@ function DetallePedido({ pedido, tok, onVolver }) {
         )}
       </div>
 
-      {/* Registrar pago */}
+      {/* Botón registrar pago */}
       {saldo > 0 && (
+        <button
+          onClick={() => { setFormPag(f => ({ ...f, monto: String(saldo) })); setShowPagModal(true); }}
+          style={{ width: '100%', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontSize: 16, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+        >
+          ✓ Registrar pago — {gs(saldo)} pendiente
+        </button>
+      )}
+
+      {/* Historial de pagos */}
+      {pagos.length > 0 && (
         <Card>
-          <CardHead title="Registrar pago" action={<button onClick={() => setShowPago(!showPago)} style={{ background: '#f0fdf4', color: '#15803d', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>+ Pago</button>} />
-          {showPago && (
-            <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}><label style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Monto (Gs.) *</label><input type="number" value={formPago.monto} onChange={e => setFormPago({ ...formPago, monto: e.target.value })} placeholder={gs(saldo)} style={inp} /></div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}><label style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Medio de pago</label><select value={formPago.medio_pago} onChange={e => setFormPago({ ...formPago, medio_pago: e.target.value })} style={inp}><option value="efectivo">💵 Efectivo</option><option value="transferencia">🏦 Transferencia</option><option value="cheque">📝 Cheque</option></select></div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}><label style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Observación</label><input value={formPago.observacion} onChange={e => setFormPago({ ...formPago, observacion: e.target.value })} placeholder="Opcional" style={inp} /></div>
-              <div style={{ display: 'flex', gap: 8 }}><button onClick={registrarPago} disabled={saving || !formPago.monto} style={{ background: saving ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>{saving ? 'Guardando...' : 'Confirmar pago'}</button><button onClick={() => setShowPago(false)} style={{ background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '10px 20px', fontSize: 14, cursor: 'pointer' }}>Cancelar</button></div>
-            </div>
-          )}
-          {pagos.length > 0 && (
-            <div style={{ padding: 14 }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', margin: '0 0 8px', textTransform: 'uppercase' }}>Historial de pagos</p>
-              {pagos.map((p, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f3f4f6', fontSize: 14 }}>
-                  <span style={{ color: '#6b7280' }}>{fd(p.fecha)} · {p.medio_pago}</span>
-                  <span style={{ fontWeight: 600, color: '#15803d' }}>{gs(p.monto)}</span>
+          <CardHead title="Historial de pagos" />
+          <div style={{ padding: '0 14px 14px' }}>
+            {pagos.map((p, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f3f4f6' }}>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: '0 0 2px' }}>
+                    {p.medio_pago === 'transferencia' ? '🏦 Transferencia' : p.medio_pago === 'efectivo' ? '💵 Efectivo' : '📝 ' + p.medio_pago}
+                  </p>
+                  <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>
+                    {fd(p.fecha)}{p.banco ? ` · ${p.banco}` : ''}{p.comprobante ? ` · Comp. ${p.comprobante}` : ''}
+                  </p>
                 </div>
-              ))}
-            </div>
-          )}
+                <span style={{ fontWeight: 700, fontSize: 15, color: '#16a34a' }}>{gs(p.monto)}</span>
+              </div>
+            ))}
+          </div>
         </Card>
+      )}
+
+      {/* MODAL DE PAGO */}
+      {showPagModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 480, boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <p style={{ fontWeight: 800, fontSize: 16, color: '#111827', margin: 0 }}>✓ Registrar pago</p>
+              <button onClick={() => setShowPagModal(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#9ca3af' }}>×</button>
+            </div>
+            <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* Selector método */}
+              <div style={{ display: 'flex', gap: 10 }}>
+                {[['efectivo', '💵 Efectivo'], ['transferencia', '🏦 Transferencia']].map(([val, lbl]) => (
+                  <button key={val} onClick={() => setFormPag(f => ({ ...f, metodo: val }))}
+                    style={{ flex: 1, padding: '12px', borderRadius: 10, border: `2px solid ${formPag.metodo === val ? '#16a34a' : '#e5e7eb'}`, background: formPag.metodo === val ? '#f0fdf4' : '#fff', color: formPag.metodo === val ? '#15803d' : '#374151', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+
+              {/* Monto */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Monto (Gs.) *</label>
+                <input type="number" value={formPag.monto} onChange={e => setFormPag(f => ({ ...f, monto: e.target.value }))} placeholder={gs(saldo)} style={inp} />
+                <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>Saldo total: {gs(saldo)}</p>
+              </div>
+
+              {/* Campos de transferencia */}
+              {formPag.metodo === 'transferencia' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, background: '#f0fdf4', borderRadius: 12, padding: 14 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#15803d', margin: 0, textTransform: 'uppercase', letterSpacing: .5 }}>Datos de la transferencia</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Banco</label>
+                      <select value={formPag.banco} onChange={e => setFormPag(f => ({ ...f, banco: e.target.value }))} style={inp}>
+                        <option value="">Seleccionar...</option>
+                        <option>Bancop</option>
+                        <option>Banco Continental</option>
+                        <option>Itaú</option>
+                        <option>Vision Banco</option>
+                        <option>GNB</option>
+                        <option>Familiar</option>
+                        <option>BCP</option>
+                        <option>Sudameris</option>
+                        <option>Otro</option>
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>N° Comprobante</label>
+                      <input value={formPag.comprobante} onChange={e => setFormPag(f => ({ ...f, comprobante: e.target.value }))} placeholder="Ej: 123456" style={inp} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Fecha de transferencia</label>
+                    <input type="date" value={formPag.fecha_transferencia} onChange={e => setFormPag(f => ({ ...f, fecha_transferencia: e.target.value }))} style={inp} />
+                  </div>
+                </div>
+              )}
+
+              {/* Observación */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Observación (opcional)</label>
+                <input value={formPag.observacion} onChange={e => setFormPag(f => ({ ...f, observacion: e.target.value }))} placeholder="Ej: Pago parcial primera cuota" style={inp} />
+              </div>
+
+              {/* Resumen */}
+              <div style={{ background: '#f9fafb', borderRadius: 10, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 600 }}>Saldo después del pago</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: saldo - parseFloat(formPag.monto || 0) <= 0 ? '#16a34a' : '#f59e0b' }}>
+                  {gs(Math.max(0, saldo - parseFloat(formPag.monto || 0)))}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={confirmarPago} disabled={saving || !formPag.monto}
+                  style={{ flex: 1, background: saving ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '13px', fontSize: 15, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+                  {saving ? 'Guardando...' : '✓ Confirmar pago'}
+                </button>
+                <button onClick={() => setShowPagModal(false)}
+                  style={{ background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '13px 18px', fontSize: 14, cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -674,6 +800,36 @@ function Clientes({ tok }) {
     setSaving(false);
   };
 
+  const confirmarPago = async () => {
+    if (!formPag.monto) return;
+    setSaving(true);
+    const monto = parseFloat(formPag.monto);
+    const pagado = parseFloat(pedido.total_pagado || 0) + monto;
+    const nuevoEstado = pagado >= parseFloat(pedido.total) ? 'pagado' : 'parcial';
+
+    // Guardar pago con todos los datos
+    await db.post('pagos_externos', {
+      pedido_id: pedido.id,
+      monto,
+      medio_pago: formPag.metodo,
+      banco: formPag.metodo === 'transferencia' ? formPag.banco : null,
+      comprobante: formPag.metodo === 'transferencia' ? formPag.comprobante : null,
+      fecha: formPag.metodo === 'transferencia' ? formPag.fecha_transferencia : new Date().toISOString().split('T')[0],
+      observacion: formPag.observacion || null,
+    }, tok);
+
+    // Actualizar pedido
+    await db.patch('pedidos_externos', `id=eq.${pedido.id}`, {
+      total_pagado: pagado,
+      estado: nuevoEstado,
+    }, tok);
+
+    setFormPag({ metodo: 'efectivo', monto: '', banco: '', comprobante: '', fecha_transferencia: new Date().toISOString().split('T')[0], observacion: '' });
+    setShowPagModal(false);
+    setSaving(false);
+    load();
+  };
+
   const guardarEdicion = async () => {
     setSaving(true);
     const nuevoTotal = itemsEdit.reduce((s, i) => s + parseFloat(i.cantidad || 0) * parseFloat(i.precio_unitario || 0), 0);
@@ -688,9 +844,8 @@ function Clientes({ tok }) {
       medio_pago: formEdit.medio_pago,
       observacion: formEdit.observacion,
       total: nuevoTotal,
-      estado: formEdit.medio_pago !== 'credito' && nuevoTotal <= parseFloat(pedido.total_pagado || 0) ? 'pagado' : nuevoEstado,
+      estado: nuevoEstado,
       fecha_vencimiento: nuevaFechaVenc,
-      total_pagado: formEdit.medio_pago !== 'credito' ? nuevoTotal : parseFloat(pedido.total_pagado || 0),
     }, tok);
 
     // Actualizar líneas de detalle
@@ -757,6 +912,36 @@ function CuentasPendientes({ tok }) {
       .then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
   }, [tok]);
 
+  const confirmarPago = async () => {
+    if (!formPag.monto) return;
+    setSaving(true);
+    const monto = parseFloat(formPag.monto);
+    const pagado = parseFloat(pedido.total_pagado || 0) + monto;
+    const nuevoEstado = pagado >= parseFloat(pedido.total) ? 'pagado' : 'parcial';
+
+    // Guardar pago con todos los datos
+    await db.post('pagos_externos', {
+      pedido_id: pedido.id,
+      monto,
+      medio_pago: formPag.metodo,
+      banco: formPag.metodo === 'transferencia' ? formPag.banco : null,
+      comprobante: formPag.metodo === 'transferencia' ? formPag.comprobante : null,
+      fecha: formPag.metodo === 'transferencia' ? formPag.fecha_transferencia : new Date().toISOString().split('T')[0],
+      observacion: formPag.observacion || null,
+    }, tok);
+
+    // Actualizar pedido
+    await db.patch('pedidos_externos', `id=eq.${pedido.id}`, {
+      total_pagado: pagado,
+      estado: nuevoEstado,
+    }, tok);
+
+    setFormPag({ metodo: 'efectivo', monto: '', banco: '', comprobante: '', fecha_transferencia: new Date().toISOString().split('T')[0], observacion: '' });
+    setShowPagModal(false);
+    setSaving(false);
+    load();
+  };
+
   const guardarEdicion = async () => {
     setSaving(true);
     const nuevoTotal = itemsEdit.reduce((s, i) => s + parseFloat(i.cantidad || 0) * parseFloat(i.precio_unitario || 0), 0);
@@ -771,9 +956,8 @@ function CuentasPendientes({ tok }) {
       medio_pago: formEdit.medio_pago,
       observacion: formEdit.observacion,
       total: nuevoTotal,
-      estado: formEdit.medio_pago !== 'credito' && nuevoTotal <= parseFloat(pedido.total_pagado || 0) ? 'pagado' : nuevoEstado,
+      estado: nuevoEstado,
       fecha_vencimiento: nuevaFechaVenc,
-      total_pagado: formEdit.medio_pago !== 'credito' ? nuevoTotal : parseFloat(pedido.total_pagado || 0),
     }, tok);
 
     // Actualizar líneas de detalle
