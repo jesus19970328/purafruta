@@ -100,14 +100,16 @@ const calcHoras = (inicio, fin) => {
 };
 
 // ── MÓDULO PRINCIPAL ───────────────────────────────────────
+// ── MÓDULO PRINCIPAL (reemplazado) ───────────────────────
 export default function ProduccionModule({ tok }) {
   const [tab, setTab] = useState('nueva');
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <Tabs tabs={[['nueva', '+ Nueva hojita'], ['historial', 'Historial'], ['congelados', 'Congelados']]} active={tab} onChange={setTab} />
+      <Tabs tabs={[['nueva', '+ Nueva hojita'], ['historial', 'Historial'], ['congelados', '❄️ Congelados'], ['frescos', '🍃 Frescos']]} active={tab} onChange={setTab} />
       {tab === 'nueva' && <NuevaHojita tok={tok} onGuardado={() => setTab('historial')} />}
       {tab === 'historial' && <Historial tok={tok} />}
-      {tab === 'congelados' && <Congelados tok={tok} />}
+      {tab === 'congelados' && <InventarioStock tok={tok} tabla="congelados_inventario" titulo="Inventario de Congelados" emoji="❄️" colorBadge="#eff6ff" colorText="#1d4ed8" />}
+      {tab === 'frescos' && <InventarioStock tok={tok} tabla="sucursal_inventario" titulo="Inventario de Frescos" emoji="🍃" colorBadge="#f0fdf4" colorText="#15803d" />}
     </div>
   );
 }
@@ -525,6 +527,190 @@ function Congelados({ tok }) {
             </div>
           ))
       }
+    </div>
+  );
+}
+
+// ── INVENTARIO CON AJUSTE (Congelados + Frescos) ────────────
+function InventarioStock({ tok, tabla, titulo, emoji, colorBadge, colorText }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [ajusteId, setAjusteId] = useState(null);
+  const [ajusteVal, setAjusteVal] = useState('');
+  const [ajusteMotivo, setAjusteMotivo] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
+
+  const load = () => {
+    db.get(tabla, 'select=*,productos(nombre,unidad)&order=productos(nombre)', tok)
+      .then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
+  };
+
+  useEffect(() => { load(); }, [tok, tabla]);
+
+  const guardarAjuste = async (id) => {
+    if (ajusteVal === '') return;
+    setSaving(true);
+    const patch = {
+      stock_actual: parseFloat(ajusteVal),
+      ultima_actualizacion: new Date().toISOString(),
+    };
+    if (ajusteMotivo) patch.observacion = ajusteMotivo;
+    await fetch(`${SB_URL}/rest/v1/${tabla}?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SB_KEY,
+        'Authorization': `Bearer ${tok || SB_KEY}`,
+        'Prefer': 'return=representation',
+      },
+      body: JSON.stringify(patch),
+    });
+    setAjusteId(null);
+    setAjusteVal('');
+    setAjusteMotivo('');
+    setSaving(false);
+    load();
+  };
+
+  const filtrados = rows.filter(r =>
+    r.productos?.nombre?.toLowerCase().includes(busqueda.toLowerCase())
+  );
+
+  const stockBajo = rows.filter(r => parseFloat(r.stock_actual || 0) <= 5).length;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+      {/* Banner alerta stock bajo */}
+      {stockBajo > 0 && (
+        <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 20 }}>⚠️</span>
+          <p style={{ margin: 0, fontSize: 13, color: '#a16207', fontWeight: 600 }}>
+            {stockBajo} producto{stockBajo > 1 ? 's' : ''} con stock bajo (≤ 5 unidades)
+          </p>
+        </div>
+      )}
+
+      {/* Header con búsqueda y contador */}
+      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <p style={{ fontWeight: 700, fontSize: 15, color: '#111827', margin: '0 0 2px' }}>{emoji} {titulo}</p>
+          <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>{rows.length} productos registrados</p>
+        </div>
+        <input
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+          placeholder="Buscar producto..."
+          style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#111827', outline: 'none', width: 200 }}
+        />
+      </div>
+
+      {/* Lista */}
+      {loading ? (
+        <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Cargando...</p>
+      ) : filtrados.length === 0 ? (
+        <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>
+          {rows.length === 0 ? 'Sin registros en este inventario' : 'Sin resultados para la búsqueda'}
+        </p>
+      ) : (
+        filtrados.map(r => {
+          const stock = parseFloat(r.stock_actual || 0);
+          const stockBajo = stock <= 5;
+          const sinStock = stock === 0;
+          const isEditing = ajusteId === r.id;
+
+          return (
+            <div key={r.id} style={{
+              background: '#fff',
+              borderRadius: 14,
+              border: `1px solid ${sinStock ? '#fecaca' : stockBajo ? '#fde047' : '#e5e7eb'}`,
+              padding: 16,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontWeight: 700, fontSize: 15, color: '#111827', margin: '0 0 3px' }}>
+                    {r.productos?.nombre}
+                  </p>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 12, color: '#9ca3af' }}>
+                      Actualizado: {r.ultima_actualizacion ? new Date(r.ultima_actualizacion).toLocaleDateString('es-PY') : '—'}
+                    </span>
+                    {sinStock && (
+                      <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>
+                        SIN STOCK
+                      </span>
+                    )}
+                    {!sinStock && stockBajo && (
+                      <span style={{ background: '#fefce8', color: '#a16207', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>
+                        STOCK BAJO
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Stock actual o input de ajuste */}
+                {isEditing ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        value={ajusteVal}
+                        onChange={e => setAjusteVal(e.target.value)}
+                        autoFocus
+                        style={{ border: '2px solid #16a34a', borderRadius: 8, padding: '8px 10px', fontSize: 15, fontWeight: 700, width: 90, color: '#111827', textAlign: 'center', outline: 'none' }}
+                      />
+                      <span style={{ fontSize: 13, color: '#6b7280' }}>{r.productos?.unidad}</span>
+                    </div>
+                    <input
+                      value={ajusteMotivo}
+                      onChange={e => setAjusteMotivo(e.target.value)}
+                      placeholder="Motivo del ajuste (opcional)"
+                      style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#111827', outline: 'none', width: 220 }}
+                    />
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={() => guardarAjuste(r.id)}
+                        disabled={saving}
+                        style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        {saving ? '...' : '✓ Guardar'}
+                      </button>
+                      <button
+                        onClick={() => { setAjusteId(null); setAjusteVal(''); setAjusteMotivo(''); }}
+                        style={{ background: '#f3f4f6', color: '#6b7280', border: 'none', borderRadius: 8, padding: '8px 12px', fontSize: 13, cursor: 'pointer' }}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{
+                      background: colorBadge,
+                      color: colorText,
+                      borderRadius: 10,
+                      padding: '8px 16px',
+                      fontWeight: 700,
+                      fontSize: 18,
+                      minWidth: 70,
+                      textAlign: 'center',
+                    }}>
+                      {stock} <span style={{ fontSize: 12, fontWeight: 500 }}>{r.productos?.unidad}</span>
+                    </span>
+                    <button
+                      onClick={() => { setAjusteId(r.id); setAjusteVal(String(stock)); }}
+                      style={{ background: '#f9fafb', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Ajustar
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }
