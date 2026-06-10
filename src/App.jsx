@@ -318,9 +318,78 @@ function ComprasModule({ tok }) {
 
 function ListaCompras({ tok }) {
   const [rows, setRows] = useState([]); const [loading, setLoading] = useState(true);
-  useEffect(() => { db.get('compras', 'order=created_at.desc&limit=50&select=*,proveedores(nombre)', tok).then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); }); }, [tok]);
+  const [confirmDel, setConfirmDel] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const load = () => db.get('compras', 'order=created_at.desc&limit=50&select=*,proveedores(nombre)', tok).then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
+  useEffect(() => { load(); }, [tok]);
+
+  const eliminar = async (r) => {
+    setDeleting(true);
+    await fetch(`${SB_URL}/rest/v1/compras_detalle?compra_id=eq.${r.id}`, { method: 'DELETE', headers: hdr(tok) });
+    await fetch(`${SB_URL}/rest/v1/compras?id=eq.${r.id}`, { method: 'DELETE', headers: hdr(tok) });
+    setConfirmDel(null); setDeleting(false); load();
+  };
+
   const ec = { pendiente: 'yellow', recibida: 'blue', verificada: 'green' };
-  return <Card><CardHead title="Compras registradas" /><Table loading={loading} cols={['Fecha','Proveedor','Total','Estado','Observación']} empty="No hay compras registradas aún" rows={rows.map(r => [fd(r.fecha), r.proveedores?.nombre || '—', gs(r.total), <Badge color={ec[r.estado]}>{r.estado}</Badge>, r.observacion || '—'])} /></Card>;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <Card>
+        <CardHead title="Compras registradas" />
+        {loading ? <p style={{ padding: 20, textAlign: 'center', color: '#9ca3af' }}>Cargando...</p> :
+          rows.length === 0 ? <p style={{ padding: 20, textAlign: 'center', color: '#9ca3af' }}>No hay compras registradas aún</p> :
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
+                  {['Fecha', 'Proveedor', 'Total', 'Estado', 'Observación', ''].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#9ca3af', textAlign: 'left', textTransform: 'uppercase', letterSpacing: .5 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={r.id} style={{ borderBottom: '1px solid #f9fafb' }}>
+                    <td style={{ padding: '12px 14px', fontSize: 14, color: '#374151' }}>{fd(r.fecha)}</td>
+                    <td style={{ padding: '12px 14px', fontSize: 14, fontWeight: 600, color: '#111827' }}>{r.proveedores?.nombre || '—'}</td>
+                    <td style={{ padding: '12px 14px', fontSize: 14, fontWeight: 700, color: '#15803d' }}>{gs(r.total)}</td>
+                    <td style={{ padding: '12px 14px' }}><Badge color={ec[r.estado]}>{r.estado}</Badge></td>
+                    <td style={{ padding: '12px 14px', fontSize: 13, color: '#6b7280', maxWidth: 200 }}>{r.observacion || '—'}</td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <button onClick={() => setConfirmDel(r)} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        🗑 Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        }
+      </Card>
+
+      {/* Modal confirmación */}
+      {confirmDel && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 400, padding: 28, boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
+            <p style={{ fontWeight: 800, fontSize: 17, color: '#111827', margin: '0 0 8px' }}>⚠️ Eliminar compra</p>
+            <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 20px' }}>
+              ¿Eliminar la compra de <strong>{confirmDel.proveedores?.nombre || 'este proveedor'}</strong> por <strong>{gs(confirmDel.total)}</strong> del {fd(confirmDel.fecha)}? Esta acción no se puede deshacer.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => eliminar(confirmDel)} disabled={deleting} style={{ flex: 1, background: deleting ? '#fecaca' : '#dc2626', color: '#fff', border: 'none', borderRadius: 10, padding: '12px', fontSize: 15, fontWeight: 700, cursor: deleting ? 'not-allowed' : 'pointer' }}>
+                {deleting ? 'Eliminando...' : '🗑 Sí, eliminar'}
+              </button>
+              <button onClick={() => setConfirmDel(null)} style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 10, padding: '12px 20px', fontSize: 14, cursor: 'pointer' }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function NuevaCompra({ tok, onDone }) {
