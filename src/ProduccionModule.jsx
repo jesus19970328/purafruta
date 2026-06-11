@@ -136,11 +136,16 @@ function InventarioStock({ tok, tabla, titulo, emoji, tipoSalida }) {
         </div>
         {/* Filtros */}
         <div style={{ display: 'flex', gap: 6 }}>
-          {[['todos', `Todos (${rows.length})`], ['sin_stock', `Sin stock (${sinStock})`], ['stock_bajo', `Stock bajo (${stockBajoCount})`]].map(([k, label]) => (
-            <button key={k} onClick={() => setFiltro(k)} style={{ padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', background: filtro === k ? (k === 'sin_stock' ? '#fef2f2' : k === 'stock_bajo' ? '#fefce8' : '#f0fdf4'), color: filtro === k ? (k === 'sin_stock' ? '#dc2626' : k === 'stock_bajo' ? '#a16207' : '#15803d') : '#6b7280' }}>
-              {label}
-            </button>
-          ))}
+          {[['todos', `Todos (${rows.length})`], ['sin_stock', `Sin stock (${sinStock})`], ['stock_bajo', `Stock bajo (${stockBajoCount})`]].map(([k, label]) => {
+            const isActive = filtro === k;
+            const bgMap = { sin_stock: '#fef2f2', stock_bajo: '#fefce8', todos: '#f0fdf4' };
+            const colorMap = { sin_stock: '#dc2626', stock_bajo: '#a16207', todos: '#15803d' };
+            return (
+              <button key={k} onClick={() => setFiltro(k)} style={{ padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', background: isActive ? bgMap[k] : '#f3f4f6', color: isActive ? colorMap[k] : '#6b7280' }}>
+                {label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
