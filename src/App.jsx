@@ -443,17 +443,113 @@ function NuevaCompra({ tok, onDone }) {
 }
 
 function Proveedores({ tok }) {
-  const [rows, setRows] = useState([]); const [loading, setLoading] = useState(true); const [show, setShow] = useState(false);
-  const [form, setForm] = useState({ nombre: '', ruc: '', contacto: '', tipo: 'general' }); const [saving, setSaving] = useState(false);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [show, setShow] = useState(false);
+  const [form, setForm] = useState({ nombre: '', ruc: '', contacto: '', tipo: 'general' });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const [confirmDel, setConfirmDel] = useState(null);
+
   const load = () => db.get('proveedores', 'order=nombre', tok).then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
   useEffect(() => { load(); }, [tok]);
-  const guardar = async () => { setSaving(true); await db.post('proveedores', form, tok); setForm({ nombre: '', ruc: '', contacto: '', tipo: 'general' }); setShow(false); setSaving(false); load(); };
+
+  const guardar = async () => {
+    if (!form.nombre.trim()) { setErr('El nombre es obligatorio'); return; }
+    // Validar duplicado por nombre
+    const nombreNorm = form.nombre.trim().toLowerCase();
+    const duplicadoNombre = rows.find(r => r.nombre.toLowerCase() === nombreNorm);
+    if (duplicadoNombre) { setErr(`Ya existe un proveedor con el nombre "${duplicadoNombre.nombre}"`); return; }
+    // Validar duplicado por RUC
+    if (form.ruc.trim()) {
+      const duplicadoRUC = rows.find(r => r.ruc && r.ruc.replace(/-/g,'') === form.ruc.trim().replace(/-/g,''));
+      if (duplicadoRUC) { setErr(`El RUC ya está registrado para "${duplicadoRUC.nombre}"`); return; }
+    }
+    setSaving(true); setErr('');
+    await db.post('proveedores', { ...form, nombre: form.nombre.trim() }, tok);
+    setForm({ nombre: '', ruc: '', contacto: '', tipo: 'general' });
+    setShow(false); setSaving(false); load();
+  };
+
+  const eliminar = async (r) => {
+    await fetch(`${SB_URL}/rest/v1/proveedores?id=eq.${r.id}`, { method: 'DELETE', headers: hdr(tok) });
+    setConfirmDel(null); load();
+  };
+
   return (
-    <Card>
-      <CardHead title="Proveedores" action={<Btn variant="ghost" onClick={() => setShow(!show)}><Plus size={14} />Nuevo</Btn>} />
-      {show && <div style={{ padding: 16, background: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}><Grid cols={4}><Input label="Nombre *" value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} placeholder="Nombre del proveedor" /><Input label="RUC" value={form.ruc} onChange={e => setForm({ ...form, ruc: e.target.value })} placeholder="RUC" /><Input label="Contacto / Tel." value={form.contacto} onChange={e => setForm({ ...form, contacto: e.target.value })} placeholder="Teléfono" /><Select label="Tipo" value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })}><option value="general">General (pasa por almacén)</option><option value="sucursal">Sucursal (directo al local)</option></Select></Grid><div style={{ display: 'flex', gap: 8, marginTop: 12 }}><Btn onClick={guardar} disabled={saving || !form.nombre}>{saving ? 'Guardando...' : 'Guardar'}</Btn><Btn variant="secondary" onClick={() => setShow(false)}>Cancelar</Btn></div></div>}
-      <Table loading={loading} cols={['Nombre','RUC','Contacto','Tipo']} empty="No hay proveedores registrados" rows={rows.map(r => [r.nombre, r.ruc || '—', r.contacto || '—', <Badge color={r.tipo === 'general' ? 'blue' : 'purple'}>{r.tipo === 'general' ? 'General' : 'Sucursal'}</Badge>])} />
-    </Card>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <Card>
+        <CardHead title="Proveedores" sub={`${rows.length} registrados`} action={<Btn variant="ghost" onClick={() => { setShow(!show); setErr(''); }}><Plus size={14} />Nuevo</Btn>} />
+
+        {show && (
+          <div style={{ padding: 16, background: '#f9fafb', borderBottom: '1px solid #f3f4f6', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Grid cols={4}>
+              <Input label="Nombre *" value={form.nombre} onChange={e => { setForm({ ...form, nombre: e.target.value }); setErr(''); }} placeholder="Nombre del proveedor" />
+              <Input label="RUC" value={form.ruc} onChange={e => { setForm({ ...form, ruc: e.target.value }); setErr(''); }} placeholder="Ej: 80012345-6" />
+              <Input label="Contacto / Tel." value={form.contacto} onChange={e => setForm({ ...form, contacto: e.target.value })} placeholder="Teléfono" />
+              <Select label="Tipo" value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })}>
+                <option value="general">General (pasa por almacén)</option>
+                <option value="sucursal">Sucursal (directo al local)</option>
+              </Select>
+            </Grid>
+            {err && <p style={{ color: '#dc2626', fontSize: 13, margin: 0, background: '#fef2f2', padding: '8px 12px', borderRadius: 8 }}>⚠️ {err}</p>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Btn onClick={guardar} disabled={saving || !form.nombre}>{saving ? 'Guardando...' : 'Guardar'}</Btn>
+              <Btn variant="secondary" onClick={() => { setShow(false); setErr(''); }}>Cancelar</Btn>
+            </div>
+          </div>
+        )}
+
+        {/* Modal eliminar */}
+        {confirmDel && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: '#fff', borderRadius: 16, padding: 28, maxWidth: 380, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+              <p style={{ fontWeight: 700, fontSize: 16, color: '#111827', margin: '0 0 8px' }}>¿Eliminar proveedor?</p>
+              <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 20px' }}>
+                Se eliminará <strong>{confirmDel.nombre}</strong>. Las compras asociadas no se eliminarán.
+              </p>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => eliminar(confirmDel)} style={{ flex: 1, background: '#dc2626', color: '#fff', border: 'none', borderRadius: 10, padding: '12px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+                  Sí, eliminar
+                </button>
+                <Btn variant="secondary" onClick={() => setConfirmDel(null)}>Cancelar</Btn>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tabla */}
+        <div style={{ overflowX: 'auto' }}>
+          {loading ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Cargando...</p> :
+            rows.length === 0 ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>No hay proveedores registrados</p> :
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  {['Nombre', 'RUC', 'Contacto', 'Tipo', ''].map((c, i) => (
+                    <th key={i} style={{ padding: '10px 18px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: .5 }}>{c}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={r.id} style={{ borderBottom: '1px solid #fafafa' }}>
+                    <td style={{ padding: '11px 18px', fontWeight: 600, color: '#111827' }}>{r.nombre}</td>
+                    <td style={{ padding: '11px 18px', color: '#6b7280' }}>{r.ruc || '—'}</td>
+                    <td style={{ padding: '11px 18px', color: '#6b7280' }}>{r.contacto || '—'}</td>
+                    <td style={{ padding: '11px 18px' }}><Badge color={r.tipo === 'general' ? 'blue' : 'purple'}>{r.tipo === 'general' ? 'General' : 'Sucursal'}</Badge></td>
+                    <td style={{ padding: '11px 18px' }}>
+                      <button onClick={() => setConfirmDel(r)} style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>
+                        Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          }
+        </div>
+      </Card>
+    </div>
   );
 }
 
