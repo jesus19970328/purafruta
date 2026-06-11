@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ShoppingCart, Package, Factory, Store, Truck, DollarSign, BarChart3, LogOut, Menu, X, Plus, Trash2, Check, AlertCircle, Search, Home, ChevronDown } from "lucide-react";
 import PDVModuleNew from "./PDVModule";

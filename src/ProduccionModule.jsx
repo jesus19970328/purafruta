@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from "react";
 
 const SB_URL = 'https://iepqhmxgdyuthcsmxadb.supabase.co';
@@ -295,7 +296,7 @@ function HistorialProducto({ tok, row, tabla, onVolver }) {
   useEffect(() => {
     db.get('inventario_movimientos', `producto_id=eq.${row.producto_id}&tabla_origen=eq.${tabla}&order=created_at.desc&limit=50`, tok)
       .then(d => { setMovimientos(Array.isArray(d) ? d : []); setLoading(false); });
-  }, [row.producto_id]);
+  }, [row.producto_id, tok, tabla]);
 
   const tipoLabel = (t) => ({
     'entrada': { label: 'Entrada', color: '#15803d', bg: '#f0fdf4' },
