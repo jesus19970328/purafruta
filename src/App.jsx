@@ -653,130 +653,257 @@ function Remisiones({ tok }) {
 }
 
 function Salidas({ tok }) {
-  const [rows, setRows] = useState([]); const [prods, setProds] = useState([]); const [sucs, setSucs] = useState([]); const [loading, setLoading] = useState(true); const [show, setShow] = useState(false);
-  const [form, setForm] = useState({ producto_id: '', cantidad: '', unidad: 'kg', destino: 'produccion', sucursal_id: '', tipo_salida: 'salida', responsable: '' }); const [saving, setSaving] = useState(false);
+  const [grupos, setGrupos] = useState([]);
+  const [prods, setProds] = useState([]);
+  const [sucs, setSucs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [show, setShow] = useState(false);
+  const [expandido, setExpandido] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  // Formulario de nueva salida
+  const emptyHead = { fecha: new Date().toISOString().split('T')[0], tipo_salida: 'salida', destino: 'produccion', sucursal_id: '', responsable: '' };
+  const emptyItem = () => ({ producto_id: '', cantidad: '', unidad: 'unidad' });
+  const [head, setHead] = useState(emptyHead);
+  const [items, setItems] = useState([emptyItem()]);
 
   const load = () => Promise.all([
-    db.get('salidas_almacen', 'order=created_at.desc&limit=30&select=*,productos(nombre)', tok),
+    db.get('salidas_almacen', 'order=fecha.desc,created_at.desc&limit=100&select=*,productos(nombre)', tok),
     db.get('productos', 'activo=eq.true&order=nombre', tok),
-    db.get('sucursales', 'activa=eq.true', tok)
-  ]).then(([s, p, su]) => { setRows(Array.isArray(s) ? s : []); setProds(Array.isArray(p) ? p : []); setSucs(Array.isArray(su) ? su : []); setLoading(false); });
+    db.get('sucursales', 'activa=eq.true', tok),
+  ]).then(([s, p, su]) => {
+    // Agrupar salidas por grupo_salida_id (si existe) o mostrar individualmente
+    const arr = Array.isArray(s) ? s : [];
+    const map = {};
+    arr.forEach(r => {
+      const key = r.grupo_salida_id || r.id;
+      if (!map[key]) map[key] = { id: key, fecha: r.fecha, tipo_salida: r.tipo_salida, destino: r.destino, responsable: r.responsable, sucursal_id: r.sucursal_id, created_at: r.created_at, items: [] };
+      map[key].items.push(r);
+    });
+    setGrupos(Object.values(map).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+    setProds(Array.isArray(p) ? p : []);
+    setSucs(Array.isArray(su) ? su : []);
+    setLoading(false);
+  });
 
   useEffect(() => { load(); }, [tok]);
 
+  const addItem = () => setItems([...items, emptyItem()]);
+  const updItem = (i, k, v) => { const n = [...items]; n[i][k] = v; setItems(n); };
+  const removeItem = (i) => setItems(items.filter((_, idx) => idx !== i));
+
   const guardar = async () => {
-    setSaving(true);
-    await db.post('salidas_almacen', { ...form, sucursal_id: form.sucursal_id || null }, tok);
-    setForm({ producto_id: '', cantidad: '', unidad: 'kg', destino: 'produccion', sucursal_id: '', tipo_salida: 'salida', responsable: '' });
-    setShow(false); setSaving(false); load();
-  };
+    if (!head.responsable) { setErr('Ingresá el responsable'); return; }
+    if (items.some(it => !it.producto_id || !it.cantidad)) { setErr('Completá todos los productos y cantidades'); return; }
+    setSaving(true); setErr('');
 
-  const eliminar = async (row) => {
-    // Reintegrar stock al inventario
-    const inv = await db.get('almacen_inventario', `producto_id=eq.${row.producto_id}`, tok);
-    if (Array.isArray(inv) && inv[0]) {
-      await db.patch('almacen_inventario', `producto_id=eq.${row.producto_id}`,
-        { stock_actual: parseFloat(inv[0].stock_actual) + parseFloat(row.cantidad) }, tok);
+    // Generar un ID de grupo para vincular todas las filas de esta salida
+    const grupoId = crypto.randomUUID();
+
+    for (const it of items) {
+      // Guardar la salida
+      await db.post('salidas_almacen', {
+        grupo_salida_id: grupoId,
+        producto_id: it.producto_id,
+        cantidad: parseFloat(it.cantidad),
+        unidad: it.unidad,
+        fecha: head.fecha,
+        tipo_salida: head.tipo_salida,
+        destino: head.destino,
+        sucursal_id: head.sucursal_id || null,
+        responsable: head.responsable,
+      }, tok);
+
+      // Descontar del inventario de almacén
+      const inv = await db.get('almacen_inventario', `producto_id=eq.${it.producto_id}`, tok);
+      if (Array.isArray(inv) && inv[0]) {
+        const nuevo = Math.max(0, parseFloat(inv[0].stock_actual) - parseFloat(it.cantidad));
+        await db.patch('almacen_inventario', `producto_id=eq.${it.producto_id}`, { stock_actual: nuevo, ultima_actualizacion: new Date().toISOString() }, tok);
+      }
     }
-    // Eliminar la salida
-    await db.del('salidas_almacen', `id=eq.${row.id}`, tok);
-    setConfirmDel(null); load();
+
+    setHead(emptyHead);
+    setItems([emptyItem()]);
+    setShow(false);
+    setSaving(false);
+    load();
   };
 
-  const colorTipo = { salida: 'blue', consumo: 'orange' };
+  const eliminarGrupo = async (grupo) => {
+    for (const r of grupo.items) {
+      const inv = await db.get('almacen_inventario', `producto_id=eq.${r.producto_id}`, tok);
+      if (Array.isArray(inv) && inv[0]) {
+        await db.patch('almacen_inventario', `producto_id=eq.${r.producto_id}`,
+          { stock_actual: parseFloat(inv[0].stock_actual) + parseFloat(r.cantidad), ultima_actualizacion: new Date().toISOString() }, tok);
+      }
+      await db.del('salidas_almacen', `id=eq.${r.id}`, tok);
+    }
+    setConfirmDel(null);
+    load();
+  };
+
+  const prodNombre = (id) => prods.find(p => p.id === id)?.nombre || '—';
+  const sucNombre = (id) => sucs.find(s => s.id === id)?.nombre || null;
 
   return (
-    <Card>
-      <CardHead title="Salidas de almacén" action={<Btn variant="ghost" onClick={() => setShow(!show)}><Plus size={14} />Nueva salida</Btn>} />
-      {show && (
-        <div style={{ padding: 16, background: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
-          <Grid cols={3}>
-            <Select label="Tipo de salida *" value={form.tipo_salida} onChange={e => setForm({ ...form, tipo_salida: e.target.value })}>
-              <option value="salida">Salida normal</option>
-              <option value="consumo">Consumo interno</option>
-            </Select>
-            <Select label="Producto *" value={form.producto_id} onChange={e => setForm({ ...form, producto_id: e.target.value })}>
-              <option value="">Seleccionar...</option>
-              {prods.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </Select>
-            <Input label="Cantidad *" type="number" value={form.cantidad} onChange={e => setForm({ ...form, cantidad: e.target.value })} />
-            <Select label="Unidad" value={form.unidad} onChange={e => setForm({ ...form, unidad: e.target.value })}>
-              {['kg','g','litro','ml','unidad','caja','bolsa','paquete'].map(u => <option key={u}>{u}</option>)}
-            </Select>
-            <Select label="Destino" value={form.destino} onChange={e => setForm({ ...form, destino: e.target.value })}>
-              <option value="produccion">→ Producción</option>
-              <option value="sucursal">→ Sucursal</option>
-            </Select>
-            <Input label="Responsable *" value={form.responsable} onChange={e => setForm({ ...form, responsable: e.target.value })} placeholder="Nombre del personal" />
-            {form.destino === 'sucursal' && (
-              <Select label="Sucursal" value={form.sucursal_id} onChange={e => setForm({ ...form, sucursal_id: e.target.value })}>
-                <option value="">Seleccionar...</option>
-                {sucs.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-              </Select>
-            )}
-          </Grid>
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <Btn onClick={guardar} disabled={saving || !form.producto_id || !form.cantidad || !form.responsable}>
-              {saving ? 'Registrando...' : 'Registrar salida'}
-            </Btn>
-            <Btn variant="secondary" onClick={() => setShow(false)}>Cancelar</Btn>
-          </div>
-        </div>
-      )}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <Card>
+        <CardHead
+          title="Salidas de almacén"
+          action={<Btn variant="ghost" onClick={() => { setShow(!show); setErr(''); }}><Plus size={14} />Nueva salida</Btn>}
+        />
 
-      {/* Modal confirmación eliminar */}
-      {confirmDel && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 28, maxWidth: 380, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <p style={{ fontWeight: 700, fontSize: 16, color: '#111827', margin: '0 0 8px' }}>¿Eliminar esta salida?</p>
-            <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 6px' }}>
-              <strong>{confirmDel.productos?.nombre}</strong> — {confirmDel.cantidad} {confirmDel.unidad}
-            </p>
-            <p style={{ fontSize: 13, color: '#16a34a', margin: '0 0 20px', background: '#f0fdf4', padding: '8px 12px', borderRadius: 8 }}>
-              ✓ Se reintegrarán <strong>{confirmDel.cantidad} {confirmDel.unidad}</strong> al inventario automáticamente.
-            </p>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <Btn variant="danger" onClick={() => eliminar(confirmDel)}>Sí, eliminar</Btn>
-              <Btn variant="secondary" onClick={() => setConfirmDel(null)}>Cancelar</Btn>
+        {/* Formulario nueva salida */}
+        {show && (
+          <div style={{ padding: 18, background: '#f9fafb', borderBottom: '1px solid #f3f4f6', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: 0 }}>Nueva salida de almacén</p>
+
+            {/* Datos generales */}
+            <Grid cols={3}>
+              <Input label="Fecha *" type="date" value={head.fecha} onChange={e => setHead({ ...head, fecha: e.target.value })} />
+              <Select label="Tipo de salida *" value={head.tipo_salida} onChange={e => setHead({ ...head, tipo_salida: e.target.value })}>
+                <option value="salida">Salida normal</option>
+                <option value="consumo">Consumo interno</option>
+              </Select>
+              <Select label="Destino *" value={head.destino} onChange={e => setHead({ ...head, destino: e.target.value })}>
+                <option value="produccion">→ Producción</option>
+                <option value="sucursal">→ Sucursal</option>
+              </Select>
+              {head.destino === 'sucursal' && (
+                <Select label="Sucursal" value={head.sucursal_id} onChange={e => setHead({ ...head, sucursal_id: e.target.value })}>
+                  <option value="">Seleccionar...</option>
+                  {sucs.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                </Select>
+              )}
+              <Input label="Responsable *" value={head.responsable} onChange={e => setHead({ ...head, responsable: e.target.value })} placeholder="Nombre del personal" />
+            </Grid>
+
+            {/* Líneas de productos */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <p style={{ fontWeight: 600, fontSize: 13, color: '#374151', margin: 0 }}>Productos</p>
+                <button onClick={addItem} style={{ background: '#f0fdf4', color: '#15803d', border: 'none', borderRadius: 7, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>+ Agregar producto</button>
+              </div>
+              {items.map((it, i) => (
+                <div key={i} style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: 12, display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 2, minWidth: 160 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Producto *</label>
+                    <select value={it.producto_id} onChange={e => updItem(i, 'producto_id', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '9px 12px', fontSize: 14, color: '#111827', width: '100%', outline: 'none' }}>
+                      <option value="">Seleccionar...</option>
+                      {prods.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 90 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Cantidad *</label>
+                    <input type="number" value={it.cantidad} onChange={e => updItem(i, 'cantidad', e.target.value)} placeholder="0" style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '9px 12px', fontSize: 14, color: '#111827', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 90 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Unidad</label>
+                    <select value={it.unidad} onChange={e => updItem(i, 'unidad', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '9px 12px', fontSize: 14, color: '#111827', width: '100%', outline: 'none' }}>
+                      {['kg','g','litro','ml','unidad','caja','bolsa','paquete'].map(u => <option key={u}>{u}</option>)}
+                    </select>
+                  </div>
+                  {items.length > 1 && (
+                    <button onClick={() => removeItem(i)} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 8, padding: '9px 12px', fontSize: 14, cursor: 'pointer', flexShrink: 0 }}>✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {err && <p style={{ color: '#dc2626', fontSize: 13, margin: 0 }}>⚠️ {err}</p>}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Btn onClick={guardar} disabled={saving}>
+                {saving ? 'Registrando...' : `Registrar salida (${items.length} producto${items.length > 1 ? 's' : ''})`}
+              </Btn>
+              <Btn variant="secondary" onClick={() => { setShow(false); setErr(''); }}>Cancelar</Btn>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div style={{ overflowX: 'auto' }}>
-        {loading ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Cargando...</p> :
-          rows.length === 0 ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Sin salidas registradas</p> :
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-                {['Fecha','Producto','Cantidad','Tipo','Destino','Responsable',''].map((c, i) => (
-                  <th key={i} style={{ padding: '10px 18px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: .5 }}>{c}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid #fafafa' }}>
-                  <td style={{ padding: '11px 18px', color: '#111827', fontWeight: 500 }}>{fd(r.fecha)}</td>
-                  <td style={{ padding: '11px 18px', color: '#6b7280' }}>{r.productos?.nombre}</td>
-                  <td style={{ padding: '11px 18px', color: '#6b7280' }}>{r.cantidad} {r.unidad}</td>
-                  <td style={{ padding: '11px 18px' }}><Badge color={colorTipo[r.tipo_salida] || 'gray'}>{r.tipo_salida || 'salida'}</Badge></td>
-                  <td style={{ padding: '11px 18px' }}><Badge color={r.destino === 'produccion' ? 'blue' : 'purple'}>{r.destino}</Badge></td>
-                  <td style={{ padding: '11px 18px', color: '#6b7280' }}>{r.responsable || '—'}</td>
-                  <td style={{ padding: '11px 18px' }}>
-                    <button onClick={() => setConfirmDel(r)}
-                      style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        }
-      </div>
-    </Card>
+        {/* Modal confirmación eliminar */}
+        {confirmDel && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: '#fff', borderRadius: 16, padding: 28, maxWidth: 400, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+              <p style={{ fontWeight: 700, fontSize: 16, color: '#111827', margin: '0 0 8px' }}>¿Eliminar esta salida?</p>
+              <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 6px' }}>
+                {confirmDel.items.length} producto{confirmDel.items.length > 1 ? 's' : ''} · {fd(confirmDel.fecha)} · {confirmDel.responsable}
+              </p>
+              <p style={{ fontSize: 13, color: '#16a34a', margin: '0 0 20px', background: '#f0fdf4', padding: '8px 12px', borderRadius: 8 }}>
+                ✓ El stock de todos los productos se reintegrará automáticamente.
+              </p>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <Btn variant="danger" onClick={() => eliminarGrupo(confirmDel)}>Sí, eliminar</Btn>
+                <Btn variant="secondary" onClick={() => setConfirmDel(null)}>Cancelar</Btn>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Lista de salidas agrupadas */}
+        <div>
+          {loading ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Cargando...</p> :
+            grupos.length === 0 ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Sin salidas registradas</p> :
+            grupos.map((g, i) => (
+              <div key={g.id} style={{ borderBottom: i < grupos.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                {/* Fila principal */}
+                <div
+                  style={{ padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, cursor: 'pointer', background: expandido === g.id ? '#fafafa' : '#fff' }}
+                  onClick={() => setExpandido(expandido === g.id ? null : g.id)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+                    <span style={{ fontSize: 18 }}>{expandido === g.id ? '▾' : '▸'}</span>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>{fd(g.fecha)}</span>
+                        <Badge color={g.tipo_salida === 'consumo' ? 'orange' : 'blue'}>{g.tipo_salida || 'salida'}</Badge>
+                        <Badge color={g.destino === 'produccion' ? 'blue' : 'purple'}>{g.destino}{sucNombre(g.sucursal_id) ? ` — ${sucNombre(g.sucursal_id)}` : ''}</Badge>
+                        <span style={{ background: '#f3f4f6', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600, color: '#374151' }}>
+                          {g.items.length} producto{g.items.length > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: 12, color: '#9ca3af', margin: '3px 0 0' }}>Responsable: {g.responsable || '—'}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); setConfirmDel(g); }}
+                    style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}
+                  >
+                    Eliminar
+                  </button>
+                </div>
+
+                {/* Detalle expandido */}
+                {expandido === g.id && (
+                  <div style={{ padding: '0 18px 14px 50px', background: '#fafafa' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                          {['Producto', 'Cantidad', 'Unidad'].map(h => (
+                            <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {g.items.map((r, j) => (
+                          <tr key={j} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                            <td style={{ padding: '8px 10px', fontWeight: 600, color: '#111827' }}>{r.productos?.nombre || prodNombre(r.producto_id)}</td>
+                            <td style={{ padding: '8px 10px', color: '#374151' }}>{r.cantidad}</td>
+                            <td style={{ padding: '8px 10px', color: '#6b7280' }}>{r.unidad}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ))
+          }
+        </div>
+      </Card>
+    </div>
   );
 }
 
