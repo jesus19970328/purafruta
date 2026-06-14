@@ -308,16 +308,17 @@ function ComprasModule({ tok }) {
   const [tab, setTab] = useState('lista');
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Tabs tabs={[['lista','Lista de compras'],['nueva','Nueva compra'],['proveedores','Proveedores'],['productos','Catálogo']]} active={tab} onChange={setTab} />
-      {tab === 'lista' && <ListaCompras tok={tok} />}
+      <Tabs tabs={[['lista','Lista de compras'],['nueva','Nueva compra'],['credito','💳 Créditos'],['proveedores','Proveedores'],['productos','Catálogo']]} active={tab} onChange={setTab} />
+      {tab === 'lista' && <ListaCompras tok={tok} setTab={setTab} />}
       {tab === 'nueva' && <NuevaCompra tok={tok} onDone={() => setTab('lista')} />}
+      {tab === 'credito' && <CreditosCompras tok={tok} />}
       {tab === 'proveedores' && <Proveedores tok={tok} />}
       {tab === 'productos' && <Productos tok={tok} />}
     </div>
   );
 }
 
-function ListaCompras({ tok }) {
+function ListaCompras({ tok, setTab }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [confirmDel, setConfirmDel] = useState(null);
@@ -325,8 +326,9 @@ function ListaCompras({ tok }) {
   const [expandido, setExpandido] = useState(null);
   const [detalles, setDetalles] = useState({});
   const [loadingDet, setLoadingDet] = useState({});
+  const [editando, setEditando] = useState(null);
 
-  const load = () => db.get('compras', 'order=created_at.desc&limit=50&select=*,proveedores(nombre)', tok)
+  const load = () => db.get('compras', 'order=created_at.desc&limit=100&select=*,proveedores(nombre)', tok)
     .then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
 
   useEffect(() => { load(); }, [tok]);
@@ -350,108 +352,288 @@ function ListaCompras({ tok }) {
   };
 
   const ec = { pendiente: 'yellow', recibida: 'blue', verificada: 'green' };
+  const mp = { contado: { label: '💵 Contado', bg: '#f0fdf4', color: '#15803d' }, credito: { label: '🗓 Crédito', bg: '#fefce8', color: '#a16207' } };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <Card>
-        <CardHead title="Compras registradas" sub="Hacé clic en una fila para ver el detalle" />
+        <CardHead title="Compras registradas" sub="Clic en una fila para ver el detalle" />
         {loading ? <p style={{ padding: 20, textAlign: 'center', color: '#9ca3af' }}>Cargando...</p> :
           rows.length === 0 ? <p style={{ padding: 20, textAlign: 'center', color: '#9ca3af' }}>No hay compras registradas aún</p> :
           <div>
-            {rows.map((r, i) => (
-              <div key={r.id} style={{ borderBottom: i < rows.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
-                {/* Fila principal */}
-                <div
-                  onClick={() => toggleDetalle(r)}
-                  style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', background: expandido === r.id ? '#f9fafb' : '#fff', transition: 'background .15s' }}
-                >
-                  <span style={{ fontSize: 16, color: '#9ca3af', flexShrink: 0 }}>{expandido === r.id ? '▾' : '▸'}</span>
-                  <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '100px 1fr 120px 100px 1fr', gap: 8, alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, color: '#374151' }}>{fd(r.fecha)}</span>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{r.proveedores?.nombre || '—'}</span>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#15803d' }}>{gs(r.total)}</span>
-                    <Badge color={ec[r.estado]}>{r.estado}</Badge>
-                    <span style={{ fontSize: 12, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.observacion || '—'}</span>
+            {rows.map((r, i) => {
+              const metodo = r.metodo_pago || 'contado';
+              const vencido = metodo === 'credito' && r.fecha_vencimiento_pago && new Date(r.fecha_vencimiento_pago) < new Date() && r.estado_pago !== 'pagado';
+              return (
+                <div key={r.id} style={{ borderBottom: i < rows.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                  <div onClick={() => toggleDetalle(r)} style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', background: expandido === r.id ? '#f9fafb' : vencido ? '#fff5f5' : '#fff' }}>
+                    <span style={{ fontSize: 16, color: '#9ca3af', flexShrink: 0 }}>{expandido === r.id ? '▾' : '▸'}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{r.proveedores?.nombre || '—'}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: '#15803d' }}>{gs(r.total)}</span>
+                        {mp[metodo] && <span style={{ background: mp[metodo].bg, color: mp[metodo].color, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{mp[metodo].label}</span>}
+                        {vencido && <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>⚠️ VENCIDO</span>}
+                        {metodo === 'credito' && r.estado_pago === 'pagado' && <span style={{ background: '#f0fdf4', color: '#15803d', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>✓ Pagado</span>}
+                        {metodo === 'credito' && r.estado_pago === 'parcial' && <span style={{ background: '#fff7ed', color: '#c2410c', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>Pago parcial</span>}
+                      </div>
+                      <div style={{ display: 'flex', gap: 12, fontSize: 12, color: '#9ca3af', flexWrap: 'wrap' }}>
+                        <span>{fd(r.fecha)}</span>
+                        {r.fecha_vencimiento_pago && metodo === 'credito' && <span style={{ color: vencido ? '#dc2626' : '#a16207' }}>Vence: {fd(r.fecha_vencimiento_pago)}</span>}
+                        {r.observacion && <span>{r.observacion}</span>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <button onClick={e => { e.stopPropagation(); setEditando(r); }} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✏️</button>
+                      <button onClick={e => { e.stopPropagation(); setConfirmDel(r); }} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>🗑</button>
+                    </div>
                   </div>
-                  <button
-                    onClick={e => { e.stopPropagation(); setConfirmDel(r); }}
-                    style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
-                  >
-                    🗑
-                  </button>
-                </div>
 
-                {/* Detalle expandido */}
-                {expandido === r.id && (
-                  <div style={{ padding: '0 16px 14px 44px', background: '#f9fafb' }}>
-                    {loadingDet[r.id] ? (
-                      <p style={{ fontSize: 13, color: '#9ca3af', padding: '8px 0' }}>Cargando productos...</p>
-                    ) : (detalles[r.id] || []).length === 0 ? (
-                      <p style={{ fontSize: 13, color: '#9ca3af', padding: '8px 0' }}>Sin detalle de productos registrado</p>
-                    ) : (
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-                            {['Producto', 'Cantidad', 'Unidad', 'Precio unit.', 'Subtotal', 'Destino'].map(h => (
+                  {expandido === r.id && (
+                    <div style={{ padding: '0 16px 14px 44px', background: '#f9fafb' }}>
+                      {loadingDet[r.id] ? <p style={{ fontSize: 13, color: '#9ca3af' }}>Cargando...</p> :
+                        (detalles[r.id] || []).length === 0 ? <p style={{ fontSize: 13, color: '#9ca3af' }}>Sin detalle registrado</p> :
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                          <thead><tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                            {['Producto','Cantidad','Unidad','Precio unit.','Subtotal','Destino'].map(h => (
                               <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase' }}>{h}</th>
                             ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(detalles[r.id] || []).map((d, j) => (
-                            <tr key={j} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                              <td style={{ padding: '8px 10px', fontWeight: 600, color: '#111827' }}>{d.productos?.nombre || '—'}</td>
-                              <td style={{ padding: '8px 10px', color: '#374151' }}>{d.cantidad}</td>
-                              <td style={{ padding: '8px 10px', color: '#6b7280' }}>{d.unidad}</td>
-                              <td style={{ padding: '8px 10px', color: '#374151' }}>{gs(d.precio_unitario)}</td>
-                              <td style={{ padding: '8px 10px', fontWeight: 700, color: '#15803d' }}>{gs(d.subtotal)}</td>
-                              <td style={{ padding: '8px 10px' }}>
-                                <span style={{ background: d.destino === 'produccion' ? '#eff6ff' : '#f0fdf4', color: d.destino === 'produccion' ? '#1d4ed8' : '#15803d', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>
-                                  {d.destino === 'produccion' ? '→ Producción' : '→ Almacén'}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr style={{ borderTop: '2px solid #e5e7eb' }}>
-                            <td colSpan={4} style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, color: '#374151', fontSize: 13 }}>TOTAL</td>
+                          </tr></thead>
+                          <tbody>
+                            {(detalles[r.id] || []).map((d, j) => (
+                              <tr key={j} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                <td style={{ padding: '8px 10px', fontWeight: 600, color: '#111827' }}>{d.productos?.nombre || '—'}</td>
+                                <td style={{ padding: '8px 10px', color: '#374151' }}>{d.cantidad}</td>
+                                <td style={{ padding: '8px 10px', color: '#6b7280' }}>{d.unidad}</td>
+                                <td style={{ padding: '8px 10px', color: '#374151' }}>{gs(d.precio_unitario)}</td>
+                                <td style={{ padding: '8px 10px', fontWeight: 700, color: '#15803d' }}>{gs(d.subtotal)}</td>
+                                <td style={{ padding: '8px 10px' }}>
+                                  <span style={{ background: d.destino === 'produccion' ? '#eff6ff' : '#f0fdf4', color: d.destino === 'produccion' ? '#1d4ed8' : '#15803d', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>
+                                    {d.destino === 'produccion' ? '→ Producción' : '→ Almacén'}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot><tr style={{ borderTop: '2px solid #e5e7eb' }}>
+                            <td colSpan={4} style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, color: '#374151' }}>TOTAL</td>
                             <td style={{ padding: '8px 10px', fontWeight: 800, color: '#15803d', fontSize: 15 }}>{gs(r.total)}</td>
                             <td></td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+                          </tr></tfoot>
+                        </table>
+                      }
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         }
       </Card>
 
-      {/* Modal confirmación */}
+      {/* Modal eliminar */}
       {confirmDel && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 400, padding: 28, boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
             <p style={{ fontWeight: 800, fontSize: 17, color: '#111827', margin: '0 0 8px' }}>⚠️ Eliminar compra</p>
             <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 20px' }}>
-              ¿Eliminar la compra de <strong>{confirmDel.proveedores?.nombre || 'este proveedor'}</strong> por <strong>{gs(confirmDel.total)}</strong> del {fd(confirmDel.fecha)}? Esta acción no se puede deshacer.
+              ¿Eliminar la compra de <strong>{confirmDel.proveedores?.nombre || 'este proveedor'}</strong> por <strong>{gs(confirmDel.total)}</strong>?
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => eliminar(confirmDel)} disabled={deleting} style={{ flex: 1, background: deleting ? '#fecaca' : '#dc2626', color: '#fff', border: 'none', borderRadius: 10, padding: '12px', fontSize: 15, fontWeight: 700, cursor: deleting ? 'not-allowed' : 'pointer' }}>
+              <button onClick={() => eliminar(confirmDel)} disabled={deleting} style={{ flex: 1, background: deleting ? '#fecaca' : '#dc2626', color: '#fff', border: 'none', borderRadius: 10, padding: '12px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
                 {deleting ? 'Eliminando...' : '🗑 Sí, eliminar'}
               </button>
-              <button onClick={() => setConfirmDel(null)} style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 10, padding: '12px 20px', fontSize: 14, cursor: 'pointer' }}>
-                Cancelar
-              </button>
+              <button onClick={() => setConfirmDel(null)} style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 10, padding: '12px 20px', fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Modal editar */}
+      {editando && <ModalEditarCompra tok={tok} compra={editando} onClose={() => { setEditando(null); load(); }} />}
     </div>
   );
 }
+
+// ── MODAL EDITAR COMPRA ─────────────────────────────────────
+function ModalEditarCompra({ tok, compra, onClose }) {
+  const [provs, setProvs] = useState([]);
+  const [form, setForm] = useState({
+    proveedor_id: compra.proveedor_id || '',
+    fecha: compra.fecha || '',
+    observacion: compra.observacion || '',
+    metodo_pago: compra.metodo_pago || 'contado',
+    fecha_vencimiento_pago: compra.fecha_vencimiento_pago || '',
+    estado_pago: compra.estado_pago || 'pendiente',
+  });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    db.get('proveedores', 'order=nombre', tok).then(d => setProvs(Array.isArray(d) ? d : []));
+  }, [tok]);
+
+  const guardar = async () => {
+    setSaving(true);
+    await db.patch('compras', `id=eq.${compra.id}`, {
+      proveedor_id: form.proveedor_id,
+      fecha: form.fecha,
+      observacion: form.observacion,
+      metodo_pago: form.metodo_pago,
+      fecha_vencimiento_pago: form.metodo_pago === 'credito' ? form.fecha_vencimiento_pago || null : null,
+      estado_pago: form.metodo_pago === 'credito' ? form.estado_pago : 'pagado',
+    }, tok);
+    setSaving(false);
+    onClose();
+  };
+
+  const inp = { border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '11px 14px', fontSize: 14, color: '#111827', background: '#fff', width: '100%', boxSizing: 'border-box', outline: 'none' };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
+        <div style={{ padding: '18px 22px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <p style={{ fontWeight: 800, fontSize: 16, color: '#111827', margin: 0 }}>✏️ Editar compra</p>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#9ca3af' }}>×</button>
+        </div>
+        <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Proveedor</label>
+            <select value={form.proveedor_id} onChange={e => setForm({ ...form, proveedor_id: e.target.value })} style={inp}>
+              <option value="">Seleccionar...</option>
+              {provs.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </select>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Fecha</label>
+              <input type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} style={inp} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Método de pago</label>
+              <select value={form.metodo_pago} onChange={e => setForm({ ...form, metodo_pago: e.target.value })} style={inp}>
+                <option value="contado">💵 Contado</option>
+                <option value="credito">🗓 Crédito</option>
+              </select>
+            </div>
+          </div>
+          {form.metodo_pago === 'credito' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, background: '#fefce8', borderRadius: 12, padding: 14 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#a16207' }}>Fecha de vencimiento</label>
+                <input type="date" value={form.fecha_vencimiento_pago} onChange={e => setForm({ ...form, fecha_vencimiento_pago: e.target.value })} style={inp} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#a16207' }}>Estado del crédito</label>
+                <select value={form.estado_pago} onChange={e => setForm({ ...form, estado_pago: e.target.value })} style={inp}>
+                  <option value="pendiente">⏳ Pendiente</option>
+                  <option value="parcial">🔶 Pago parcial</option>
+                  <option value="pagado">✅ Pagado</option>
+                </select>
+              </div>
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Observación</label>
+            <input value={form.observacion} onChange={e => setForm({ ...form, observacion: e.target.value })} placeholder="Opcional" style={inp} />
+          </div>
+          <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
+            <button onClick={guardar} disabled={saving} style={{ flex: 1, background: saving ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '13px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+              {saving ? 'Guardando...' : '✓ Guardar cambios'}
+            </button>
+            <button onClick={onClose} style={{ background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '13px 18px', cursor: 'pointer' }}>Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── CRÉDITOS DE COMPRAS ─────────────────────────────────────
+function CreditosCompras({ tok }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filtro, setFiltro] = useState('todos');
+
+  useEffect(() => {
+    db.get('compras', `metodo_pago=eq.credito&order=fecha_vencimiento_pago.asc&select=*,proveedores(nombre)`, tok)
+      .then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
+  }, [tok]);
+
+  const hoy = new Date();
+  const vencidas = rows.filter(r => r.estado_pago !== 'pagado' && r.fecha_vencimiento_pago && new Date(r.fecha_vencimiento_pago) < hoy);
+  const pendientes = rows.filter(r => r.estado_pago === 'pendiente' && (!r.fecha_vencimiento_pago || new Date(r.fecha_vencimiento_pago) >= hoy));
+  const parciales = rows.filter(r => r.estado_pago === 'parcial');
+  const pagadas = rows.filter(r => r.estado_pago === 'pagado');
+
+  const totalPendiente = [...vencidas, ...pendientes, ...parciales].reduce((s, r) => s + parseFloat(r.total || 0), 0);
+
+  const filtradas = filtro === 'vencidas' ? vencidas : filtro === 'pendientes' ? pendientes : filtro === 'parciales' ? parciales : filtro === 'pagadas' ? pagadas : rows;
+
+  const estadoStyle = {
+    pendiente: { bg: '#fefce8', color: '#a16207', label: '⏳ Pendiente' },
+    parcial: { bg: '#fff7ed', color: '#c2410c', label: '🔶 Parcial' },
+    pagado: { bg: '#f0fdf4', color: '#15803d', label: '✅ Pagado' },
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Resumen */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+        {[
+          ['Total deuda', gs(totalPendiente), '#fef2f2', '#dc2626'],
+          ['Vencidas', `${vencidas.length} compras`, '#fef2f2', '#dc2626'],
+          ['Pendientes', `${pendientes.length} compras`, '#fefce8', '#a16207'],
+          ['Parciales', `${parciales.length} compras`, '#fff7ed', '#c2410c'],
+          ['Pagadas', `${pagadas.length} compras`, '#f0fdf4', '#15803d'],
+        ].map(([label, val, bg, fg]) => (
+          <div key={label} style={{ background: bg, borderRadius: 12, padding: '14px 16px' }}>
+            <p style={{ fontSize: 11, color: fg, fontWeight: 700, margin: '0 0 4px', textTransform: 'uppercase' }}>{label}</p>
+            <p style={{ fontSize: 16, fontWeight: 800, color: fg, margin: 0 }}>{val}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {[['todos','Todos'], ['vencidas','⚠️ Vencidas'], ['pendientes','⏳ Pendientes'], ['parciales','🔶 Parciales'], ['pagadas','✅ Pagadas']].map(([k, l]) => (
+          <button key={k} onClick={() => setFiltro(k)} style={{ padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', background: filtro === k ? '#16a34a' : '#f3f4f6', color: filtro === k ? '#fff' : '#374151' }}>{l}</button>
+        ))}
+      </div>
+
+      {/* Lista */}
+      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        {loading ? <p style={{ padding: 30, textAlign: 'center', color: '#9ca3af' }}>Cargando...</p> :
+          filtradas.length === 0 ? <p style={{ padding: 30, textAlign: 'center', color: '#9ca3af' }}>Sin compras en esta categoría</p> :
+          filtradas.map((r, i) => {
+            const vencido = r.estado_pago !== 'pagado' && r.fecha_vencimiento_pago && new Date(r.fecha_vencimiento_pago) < hoy;
+            const est = estadoStyle[r.estado_pago] || estadoStyle.pendiente;
+            return (
+              <div key={r.id} style={{ padding: '14px 18px', borderBottom: i < filtradas.length - 1 ? '1px solid #f3f4f6' : 'none', background: vencido ? '#fff5f5' : '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>{r.proveedores?.nombre || '—'}</span>
+                    <span style={{ background: est.bg, color: est.color, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{est.label}</span>
+                    {vencido && <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>⚠️ VENCIDO</span>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 14, fontSize: 12, color: '#9ca3af', flexWrap: 'wrap' }}>
+                    <span>Fecha compra: {fd(r.fecha)}</span>
+                    {r.fecha_vencimiento_pago && <span style={{ color: vencido ? '#dc2626' : '#a16207', fontWeight: 600 }}>Vence: {fd(r.fecha_vencimiento_pago)}</span>}
+                    {r.observacion && <span>{r.observacion}</span>}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <p style={{ fontWeight: 800, fontSize: 17, color: r.estado_pago === 'pagado' ? '#15803d' : '#dc2626', margin: '0 0 4px' }}>{gs(r.total)}</p>
+                  <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>{fd(r.fecha)}</p>
+                </div>
+              </div>
+            );
+          })
+        }
+      </div>
+    </div>
+  );
+}
+
 
 function NuevaCompra({ tok, onDone }) {
   const [provs, setProvs] = useState([]); const [prods, setProds] = useState([]);
