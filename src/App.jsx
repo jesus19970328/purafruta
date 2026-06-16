@@ -640,17 +640,63 @@ function NuevaCompra({ tok, onDone }) {
   const [form, setForm] = useState({ proveedor_id: '', fecha: new Date().toISOString().split('T')[0], observacion: '' });
   const [items, setItems] = useState([]); const [saving, setSaving] = useState(false); const [err, setErr] = useState('');
   useEffect(() => { db.get('proveedores', 'activo=eq.true&order=nombre', tok).then(d => setProvs(Array.isArray(d) ? d : [])); db.get('productos', 'activo=eq.true&order=nombre', tok).then(d => setProds(Array.isArray(d) ? d : [])); }, [tok]);
-  const addItem = () => setItems([...items, { producto_id: '', cantidad: '', unidad: 'kg', precio_unitario: '', destino: 'almacen' }]);
+  const emptyItem = () => ({ producto_id: '', nombre_libre: '', cantidad: '', unidad: 'kg', precio_unitario: '', destino: 'almacen', _sugs: [], _showSugs: false });
+  const addItem = () => setItems([...items, emptyItem()]);
   const upd = (i, k, v) => { const n = [...items]; n[i][k] = v; setItems(n); };
   const total = items.reduce((s, it) => s + parseFloat(it.cantidad || 0) * parseFloat(it.precio_unitario || 0), 0);
+
+  const buscarProd = (i, texto) => {
+    const n = [...items];
+    n[i].nombre_libre = texto;
+    n[i].producto_id = '';
+    n[i]._sugs = texto.length > 0 ? prods.filter(p => p.nombre.toLowerCase().includes(texto.toLowerCase())).slice(0, 6) : [];
+    n[i]._showSugs = n[i]._sugs.length > 0;
+    setItems(n);
+  };
+
+  const elegirProd = (i, prod) => {
+    const n = [...items];
+    n[i].nombre_libre = prod.nombre;
+    n[i].producto_id = prod.id;
+    n[i]._sugs = [];
+    n[i]._showSugs = false;
+    setItems(n);
+  };
+
+  const cerrarSugs = (i) => setTimeout(() => {
+    const n = [...items];
+    if (n[i]) { n[i]._showSugs = false; setItems(n); }
+  }, 200);
+
   const guardar = async () => {
     if (!form.proveedor_id) { setErr('Seleccioná un proveedor'); return; }
     if (items.length === 0) { setErr('Agregá al menos un producto'); return; }
+    if (items.some(it => !it.nombre_libre || !it.cantidad)) { setErr('Completá nombre y cantidad de todos los productos'); return; }
     setSaving(true); setErr('');
+    const itemsResueltos = [];
+    for (const it of items) {
+      let pid = it.producto_id;
+      if (!pid && it.nombre_libre) {
+        const existe = prods.find(p => p.nombre.toLowerCase() === it.nombre_libre.toLowerCase());
+        if (existe) { pid = existe.id; }
+        else {
+          const res = await db.post('productos', { nombre: it.nombre_libre.trim(), unidad: it.unidad, activo: true, es_producido: false }, tok);
+          const nuevo = Array.isArray(res) ? res[0] : res;
+          pid = nuevo?.id || null;
+        }
+      }
+      itemsResueltos.push({ ...it, producto_id: pid, subtotal: parseFloat(it.cantidad || 0) * parseFloat(it.precio_unitario || 0) });
+    }
     const res = await db.post('compras', { ...form, total }, tok);
     const compra = Array.isArray(res) ? res[0] : res;
-    if (compra?.id) { await db.post('compras_detalle', items.map(it => ({ ...it, compra_id: compra.id, subtotal: parseFloat(it.cantidad || 0) * parseFloat(it.precio_unitario || 0) })), tok); onDone(); }
-    else { setErr('Error al guardar. Verificá los datos.'); setSaving(false); }
+    if (compra?.id) {
+      await db.post('compras_detalle', itemsResueltos.map(it => ({
+        compra_id: compra.id, producto_id: it.producto_id, cantidad: parseFloat(it.cantidad),
+        unidad: it.unidad, precio_unitario: parseFloat(it.precio_unitario || 0),
+        subtotal: it.subtotal, destino: it.destino,
+      })), tok);
+      onDone();
+    } else { setErr('Error al guardar. Verificá los datos.'); setSaving(false); }
   };
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -664,7 +710,17 @@ function NuevaCompra({ tok, onDone }) {
           {items.length === 0 && <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: 14, padding: '20px 0' }}>Hacé clic en "Agregar" para sumar productos</p>}
           {items.map((it, i) => (
             <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: 8, background: '#fafafa', padding: 12, borderRadius: 10 }}>
-              <select value={it.producto_id} onChange={e => upd(i, 'producto_id', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }}><option value="">Producto...</option>{prods.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select>
+              <div style={{ position: 'relative' }}>
+                <input value={it.nombre_libre || ''} onChange={e => buscarProd(i, e.target.value)} onBlur={() => cerrarSugs(i)} placeholder="Escribir o buscar producto..." style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff', width: '100%', boxSizing: 'border-box', outline: 'none' }} />
+                {it._showSugs && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #16a34a', borderRadius: 8, zIndex: 50, maxHeight: 180, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
+                    {it._sugs.map(p => (
+                      <div key={p.id} onMouseDown={() => elegirProd(i, p)} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f3f4f6', color: '#111827' }} onMouseEnter={e => e.currentTarget.style.background='#f0fdf4'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>{p.nombre}</div>
+                    ))}
+                  </div>
+                )}
+                {it.nombre_libre && <p style={{ fontSize: 10, margin: '2px 0 0', color: it.producto_id ? '#16a34a' : '#f59e0b', fontWeight: 600 }}>{it.producto_id ? '✓ Producto existente' : '✚ Se creará como nuevo'}</p>}
+              </div>
               <input type="number" placeholder="Cantidad" value={it.cantidad} onChange={e => upd(i, 'cantidad', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }} />
               <select value={it.unidad} onChange={e => upd(i, 'unidad', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }}>{['kg','g','litro','ml','unidad','caja','bolsa','paquete','rollo'].map(u => <option key={u}>{u}</option>)}</select>
               <input type="number" placeholder="Precio unit." value={it.precio_unitario} onChange={e => upd(i, 'precio_unitario', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }} />
@@ -1282,7 +1338,17 @@ function Lotes({ tok }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><p style={{ fontWeight: 500, fontSize: 14, color: '#374151', margin: 0 }}>Productos producidos</p><button onClick={addItem} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#16a34a', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}><Plus size={14} />Agregar</button></div>
             {items.map((it, i) => (
               <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, marginBottom: 8 }}>
-                <select value={it.producto_id} onChange={e => upd(i, 'producto_id', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }}><option value="">Producto...</option>{prods.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select>
+                <div style={{ position: 'relative' }}>
+                <input value={it.nombre_libre || ''} onChange={e => buscarProd(i, e.target.value)} onBlur={() => cerrarSugs(i)} placeholder="Escribir o buscar producto..." style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff', width: '100%', boxSizing: 'border-box', outline: 'none' }} />
+                {it._showSugs && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #16a34a', borderRadius: 8, zIndex: 50, maxHeight: 180, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
+                    {it._sugs.map(p => (
+                      <div key={p.id} onMouseDown={() => elegirProd(i, p)} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f3f4f6', color: '#111827' }} onMouseEnter={e => e.currentTarget.style.background='#f0fdf4'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>{p.nombre}</div>
+                    ))}
+                  </div>
+                )}
+                {it.nombre_libre && <p style={{ fontSize: 10, margin: '2px 0 0', color: it.producto_id ? '#16a34a' : '#f59e0b', fontWeight: 600 }}>{it.producto_id ? '✓ Producto existente' : '✚ Se creará como nuevo'}</p>}
+              </div>
                 <input type="number" placeholder="Cantidad" value={it.cantidad_producida} onChange={e => upd(i, 'cantidad_producida', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }} />
                 <input type="number" placeholder="Peso paq. (kg)" value={it.peso_paquete} onChange={e => upd(i, 'peso_paquete', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }} />
                 <select value={it.unidad} onChange={e => upd(i, 'unidad', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }}>{['kg','g','unidad','paquete'].map(u => <option key={u}>{u}</option>)}</select>
@@ -1394,7 +1460,17 @@ function PedidosModule({ tok, perfil }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><p style={{ fontWeight: 500, fontSize: 14, margin: 0 }}>Productos solicitados</p><button onClick={addItem} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#16a34a', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}><Plus size={14} />Agregar</button></div>
               {items.map((it, i) => (
                 <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 8, marginBottom: 8 }}>
-                  <select value={it.producto_id} onChange={e => upd(i, 'producto_id', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }}><option value="">Producto...</option>{prods.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select>
+                  <div style={{ position: 'relative' }}>
+                <input value={it.nombre_libre || ''} onChange={e => buscarProd(i, e.target.value)} onBlur={() => cerrarSugs(i)} placeholder="Escribir o buscar producto..." style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff', width: '100%', boxSizing: 'border-box', outline: 'none' }} />
+                {it._showSugs && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #16a34a', borderRadius: 8, zIndex: 50, maxHeight: 180, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
+                    {it._sugs.map(p => (
+                      <div key={p.id} onMouseDown={() => elegirProd(i, p)} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f3f4f6', color: '#111827' }} onMouseEnter={e => e.currentTarget.style.background='#f0fdf4'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>{p.nombre}</div>
+                    ))}
+                  </div>
+                )}
+                {it.nombre_libre && <p style={{ fontSize: 10, margin: '2px 0 0', color: it.producto_id ? '#16a34a' : '#f59e0b', fontWeight: 600 }}>{it.producto_id ? '✓ Producto existente' : '✚ Se creará como nuevo'}</p>}
+              </div>
                   <input type="number" placeholder="Cantidad" value={it.cantidad_solicitada} onChange={e => upd(i, 'cantidad_solicitada', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }} />
                   <select value={it.unidad} onChange={e => upd(i, 'unidad', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }}>{['kg','g','litro','ml','unidad','caja','bolsa','paquete'].map(u => <option key={u}>{u}</option>)}</select>
                   <button onClick={() => setItems(items.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={16} /></button>
