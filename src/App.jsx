@@ -21,7 +21,12 @@ const db = {
 };
 
 const gs = (n) => new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(n || 0) + ' Gs.';
-const fd = (d) => d ? new Date(d).toLocaleDateString('es-PY') : '—';
+const fd = (d) => {
+  if (!d) return '—';
+  // Evitar desfase de zona horaria: parsear como fecha local
+  const [y, m, day] = String(d).slice(0, 10).split('-');
+  return new Date(parseInt(y), parseInt(m) - 1, parseInt(day)).toLocaleDateString('es-PY');
+};
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: Home, roles: ['admin','director','finanzas'] },
