@@ -255,7 +255,7 @@ const Badge = ({ children, color = 'gray' }) => {
 const Table = ({ cols, rows, empty = 'Sin registros', loading }) => (
   <div style={{ overflowX: 'auto' }}>
     {loading ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af', fontSize: 14 }}>Cargando...</p> : rows.length === 0 ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af', fontSize: 14 }}>{empty}</p> :
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, textAlign: 'left' }}>
         <thead><tr style={{ borderBottom: '1px solid #f3f4f6' }}>{cols.map((c, i) => <th key={i} style={{ padding: '10px 18px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: .5 }}>{c}</th>)}</tr></thead>
         <tbody>{rows.map((r, i) => <tr key={i} style={{ borderBottom: '1px solid #fafafa' }}>{r.map((c, j) => <td key={j} style={{ padding: '11px 18px', color: j === 0 ? '#111827' : '#6b7280', fontWeight: j === 0 ? 500 : 400 }}>{c}</td>)}</tr>)}</tbody>
       </table>}
@@ -825,7 +825,7 @@ function Proveedores({ tok }) {
         <div style={{ overflowX: 'auto' }}>
           {loading ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Cargando...</p> :
             rows.length === 0 ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>No hay proveedores registrados</p> :
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
                   {['Nombre', 'RUC', 'Contacto', 'Tipo', ''].map((c, i) => (
@@ -996,7 +996,7 @@ function InvAlmacen({ tok }) {
       {loading ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Cargando...</p> :
         filtrados.length === 0 ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Sin resultados</p> :
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, textAlign: 'left' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
                 <SortTh col="nombre" label="Producto" />
@@ -1009,7 +1009,7 @@ function InvAlmacen({ tok }) {
             <tbody>
               {filtrados.map((r, i) => (
                 <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  <td style={{ padding: '6px 14px', fontWeight: 600, color: '#111827', fontSize: 13, textTransform: 'uppercase' }}>{r.productos?.nombre}</td>
+                  <td style={{ padding: '6px 14px', fontWeight: 600, color: '#111827', fontSize: 13, textTransform: 'uppercase', textAlign: 'left' }}>{r.productos?.nombre}</td>
                   <td style={{ padding: '6px 14px', fontWeight: 600, color: '#111827', fontSize: 13 }}>
                     {ajusteId === r.id ? (
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
