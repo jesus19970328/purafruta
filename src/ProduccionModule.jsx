@@ -380,10 +380,27 @@ function NuevaHojita({ tok, onGuardado }) {
   const [indirectos, setIndirectos] = useState({ bolsa_vacio: '', bolsa_basura: '', guantes: '', vasos: '', costo_bolsa_vacio: 500, costo_bolsa_basura: 300, costo_guante: 2000, costo_vaso: 200 });
   const [tareas, setTareas] = useState(Array(3).fill(null).map(() => ({ inicio: '', fin: '', descripcion: '' })));
   const [firmas, setFirmas] = useState({ nombres_operadores: '', jefe_prod: 'Isaac', firma_almacen: '' });
+  const [preciosMP, setPreciosMP] = useState({}); // producto_id -> precio_por_kg
 
   useEffect(() => {
     db.get('productos', 'activo=eq.true&order=nombre', tok).then(d => setProds(Array.isArray(d) ? d : []));
     db.get('sucursal_inventario', 'select=*,productos(nombre,unidad)&order=productos(nombre)', tok).then(d => setFrescos(Array.isArray(d) ? d : []));
+    // Cargar últimos precios de compra por producto (precio_unitario en Gs. por unidad declarada)
+    db.get('compras_detalle', 'select=producto_id,precio_unitario,unidad,compras(fecha)&order=compras(fecha).desc', tok).then(d => {
+      if (!Array.isArray(d)) return;
+      const map = {};
+      d.forEach(r => {
+        if (!map[r.producto_id] && r.precio_unitario > 0) {
+          // Normalizar a Gs. por kg
+          let precioKg = parseFloat(r.precio_unitario);
+          if (r.unidad === 'g') precioKg = precioKg * 1000;
+          else if (r.unidad === 'kg') precioKg = precioKg;
+          else precioKg = precioKg; // unidad o paquete: precio por unidad
+          map[r.producto_id] = { precioKg, unidad: r.unidad, precioUnit: parseFloat(r.precio_unitario) };
+        }
+      });
+      setPreciosMP(map);
+    });
   }, [tok]);
 
   const updM = (i, k, v) => { const n = [...materia]; n[i][k] = v; setMateria(n); };
@@ -417,9 +434,20 @@ function NuevaHojita({ tok, onGuardado }) {
   const costoMO = horasTotales * COSTO_HORA;
   const costoInd = (parseFloat(indirectos.bolsa_vacio || 0) * indirectos.costo_bolsa_vacio) + (parseFloat(indirectos.bolsa_basura || 0) * indirectos.costo_bolsa_basura) + (parseFloat(indirectos.guantes || 0) * indirectos.costo_guante) + (parseFloat(indirectos.vasos || 0) * indirectos.costo_vaso);
   const cantPaq = parseFloat(paquetes || 0);
-  const costoTotal = costoMO + costoInd;
+
+  // Costo materia prima usando última compra
+  const costoMP = materia.filter(m => m.producto_id && parseFloat(m.peso_neto) > 0).reduce((s, m) => {
+    const precio = preciosMP[m.producto_id];
+    if (!precio) return s;
+    const usadoG = parseFloat(m.peso_neto) - parseFloat(m.sobra_neto || 0);
+    const usadoKg = usadoG / 1000;
+    return s + (usadoKg * precio.precioKg);
+  }, 0);
+
+  const costoTotal = costoMO + costoInd + costoMP;
   const costoUnit = cantPaq > 0 ? costoTotal / cantPaq : 0;
   const precioSug = costoUnit / (1 - MARGEN);
+  const tienePreciosMP = materia.filter(m => m.producto_id).some(m => preciosMP[m.producto_id]);
 
   const guardar = async () => {
     if (!general.producto_id || !paquetes) { setErr('Completá el producto y la cantidad de paquetes'); return; }
@@ -430,7 +458,7 @@ function NuevaHojita({ tok, onGuardado }) {
         responsable: firmas.nombres_operadores || operadores.filter(o => o.nombre).map(o => o.nombre).join(', '),
         hora_inicio: operadores[0]?.inicio || null,
         hora_fin: operadores[0]?.fin || null,
-        observacion: JSON.stringify({ general, materia: materia.filter(m => m.nombre), operadores: operadores.filter(o => o.nombre), indirectos, tareas: tareas.filter(t => t.descripcion), firmas, calculos: { horasTotales, costoMO, costoInd, costoTotal, costoUnit, precioSug } }),
+        observacion: JSON.stringify({ general, materia: materia.filter(m => m.nombre), operadores: operadores.filter(o => o.nombre), indirectos, tareas: tareas.filter(t => t.descripcion), firmas, calculos: { horasTotales, costoMO, costoInd, costoMP, costoTotal, costoUnit, precioSug } }),
         estado: 'cerrado',
       };
       const res = await db.post('produccion_lotes', payload, tok);
@@ -589,7 +617,19 @@ function NuevaHojita({ tok, onGuardado }) {
       <Card style={{ border: '2px solid #16a34a' }}>
         <CardHead title="💰 Resumen de Costos" sub="Calculado automáticamente · 13.000 Gs/hora · Margen 55%" />
         <div style={sec}>
-          {[['Mano de obra', gs(costoMO), '#eff6ff', '#1d4ed8'], ['Materiales indirectos', gs(costoInd), '#faf5ff', '#7c3aed'], ['Costo total del lote', gs(costoTotal), '#fefce8', '#a16207'], ['Costo unitario x paquete', gs(costoUnit), '#fff7ed', '#c2410c'], ['Precio sugerido (55% margen)', gs(precioSug), '#f0fdf4', '#15803d']].map(([label, val, bg, fg]) => (
+          {costoMP === 0 && materia.some(m => m.producto_id) && !tienePreciosMP && (
+            <div style={{ background: '#fefce8', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#a16207', fontWeight: 600 }}>
+              ⚠️ Sin precio de compra para los ingredientes — registrá las compras para incluir el costo de MP en el cálculo
+            </div>
+          )}
+          {[
+            ['Materia prima', costoMP > 0 ? gs(costoMP) : 'Sin precio registrado', '#f0fdf4', costoMP > 0 ? '#15803d' : '#9ca3af'],
+            ['Mano de obra', gs(costoMO), '#eff6ff', '#1d4ed8'],
+            ['Materiales indirectos', gs(costoInd), '#faf5ff', '#7c3aed'],
+            ['Costo total del lote', gs(costoTotal), '#fefce8', '#a16207'],
+            ['Costo unitario x paquete', gs(costoUnit), '#fff7ed', '#c2410c'],
+            ['Precio sugerido (55% margen)', gs(precioSug), '#f0fdf4', '#15803d']
+          ].map(([label, val, bg, fg]) => (
             <div key={label} style={{ background: bg, borderRadius: 12, padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <p style={{ fontSize: 14, color: fg, margin: 0, fontWeight: 500 }}>{label}</p>
               <p style={{ fontSize: 18, fontWeight: 700, color: fg, margin: 0 }}>{val}</p>
@@ -677,7 +717,15 @@ function DetalleHojita({ lote, onVolver }) {
       <Card style={{ border: '2px solid #16a34a' }}>
         <CardHead title="💰 Resumen de costos" />
         <div style={sec}>
-          {[['Paquetes', `${det?.cantidad_producida || 0} paq.`, '#f9fafb', '#374151'], ['Mano de obra', gs(calculos.costoMO), '#eff6ff', '#1d4ed8'], ['Indirectos', gs(calculos.costoInd), '#faf5ff', '#7c3aed'], ['Costo total', gs(calculos.costoTotal), '#fefce8', '#a16207'], ['Costo unit.', gs(calculos.costoUnit), '#fff7ed', '#c2410c'], ['P. sugerido', gs(calculos.precioSug), '#f0fdf4', '#15803d']].map(([l, v, bg, fg]) => (
+          {[
+            ['Paquetes', `${det?.cantidad_producida || 0} paq.`, '#f9fafb', '#374151'],
+            ['Materia prima', calculos.costoMP > 0 ? gs(calculos.costoMP) : '—', '#f0fdf4', '#15803d'],
+            ['Mano de obra', gs(calculos.costoMO), '#eff6ff', '#1d4ed8'],
+            ['Indirectos', gs(calculos.costoInd), '#faf5ff', '#7c3aed'],
+            ['Costo total', gs(calculos.costoTotal), '#fefce8', '#a16207'],
+            ['Costo unit.', gs(calculos.costoUnit), '#fff7ed', '#c2410c'],
+            ['P. sugerido', gs(calculos.precioSug), '#f0fdf4', '#15803d']
+          ].map(([l, v, bg, fg]) => (
             <div key={l} style={{ background: bg, borderRadius: 10, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 14, color: fg, fontWeight: 500 }}>{l}</span>
               <span style={{ fontSize: 16, fontWeight: 700, color: fg }}>{v}</span>
