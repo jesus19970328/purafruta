@@ -929,7 +929,7 @@ function InvAlmacen({ tok }) {
     });
 
   const SortTh = ({ col, label }) => (
-    <th onClick={() => toggleSort(col)} style={{ padding: '10px 18px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: sortCol === col ? '#16a34a' : '#9ca3af', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+    <th onClick={() => toggleSort(col)} style={{ padding: '7px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: sortCol === col ? '#16a34a' : '#9ca3af', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
       {label} {sortCol === col ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
     </th>
   );
@@ -1002,34 +1002,34 @@ function InvAlmacen({ tok }) {
                 <SortTh col="nombre" label="Producto" />
                 <SortTh col="stock" label="Stock actual" />
                 <SortTh col="unidad" label="Unidad" />
-                <th style={{ padding: '10px 18px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase' }}>Estado</th>
-                <th style={{ padding: '10px 18px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase' }}>Ajuste</th>
+                <th style={{ padding: '7px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase' }}>Estado</th>
+                <th style={{ padding: '7px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase' }}>Ajuste</th>
               </tr>
             </thead>
             <tbody>
               {filtrados.map((r, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid #f9fafb' }}>
-                  <td style={{ padding: '10px 18px', fontWeight: 500, color: '#111827' }}>{r.productos?.nombre}</td>
-                  <td style={{ padding: '10px 18px', fontWeight: 600, color: '#111827' }}>
+                <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={{ padding: '6px 14px', fontWeight: 600, color: '#111827', fontSize: 13, textTransform: 'uppercase' }}>{r.productos?.nombre}</td>
+                  <td style={{ padding: '6px 14px', fontWeight: 600, color: '#111827', fontSize: 13 }}>
                     {ajusteId === r.id ? (
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                         <input type="number" value={ajusteVal} onChange={e => setAjusteVal(e.target.value)}
-                          style={{ border: '1.5px solid #16a34a', borderRadius: 6, padding: '4px 8px', fontSize: 13, width: 80, color: '#111827' }} />
-                        <button onClick={() => guardarAjuste(r.id)} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>✓</button>
-                        <button onClick={() => { setAjusteId(null); setAjusteVal(''); }} style={{ background: '#f3f4f6', color: '#6b7280', border: 'none', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                          style={{ border: '1.5px solid #16a34a', borderRadius: 6, padding: '3px 7px', fontSize: 13, width: 70, color: '#111827' }} autoFocus />
+                        <button onClick={() => guardarAjuste(r.id)} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '3px 9px', fontSize: 12, cursor: 'pointer' }}>✓</button>
+                        <button onClick={() => { setAjusteId(null); setAjusteVal(''); }} style={{ background: '#f3f4f6', color: '#6b7280', border: 'none', borderRadius: 6, padding: '3px 7px', fontSize: 12, cursor: 'pointer' }}>✕</button>
                       </div>
                     ) : r.stock_actual}
                   </td>
-                  <td style={{ padding: '10px 18px', color: '#6b7280' }}>{r.productos?.unidad}</td>
-                  <td style={{ padding: '10px 18px' }}>
+                  <td style={{ padding: '6px 14px', color: '#6b7280', fontSize: 13 }}>{r.productos?.unidad}</td>
+                  <td style={{ padding: '6px 14px' }}>
                     <Badge color={parseFloat(r.stock_actual) === 0 ? 'yellow' : 'green'}>
                       {parseFloat(r.stock_actual) === 0 ? 'Sin stock' : 'OK'}
                     </Badge>
                   </td>
-                  <td style={{ padding: '10px 18px' }}>
+                  <td style={{ padding: '6px 14px' }}>
                     {ajusteId !== r.id && (
                       <button onClick={() => { setAjusteId(r.id); setAjusteVal(r.stock_actual); }}
-                        style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>
+                        style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: 6, padding: '3px 9px', fontSize: 12, cursor: 'pointer' }}>
                         Ajustar
                       </button>
                     )}
