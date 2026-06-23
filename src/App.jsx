@@ -398,9 +398,9 @@ function ListaCompras({ tok, setTab }) {
           sub="Clic en una fila para ver el detalle"
           action={
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#374151' }} />
+              <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#111827', background: '#fff', colorScheme: 'light' }} />
               <span style={{ fontSize: 12, color: '#9ca3af' }}>a</span>
-              <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#374151' }} />
+              <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#111827', background: '#fff', colorScheme: 'light' }} />
               {(fechaDesde || fechaHasta) && (
                 <button onClick={() => { setFechaDesde(''); setFechaHasta(''); }} style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#6b7280', cursor: 'pointer' }}>✕ Limpiar</button>
               )}
