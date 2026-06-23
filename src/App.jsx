@@ -332,8 +332,11 @@ function ListaCompras({ tok, setTab }) {
   const [detalles, setDetalles] = useState({});
   const [loadingDet, setLoadingDet] = useState({});
   const [editando, setEditando] = useState(null);
+  const [vista, setVista] = useState('general'); // general | personal
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
 
-  const load = () => db.get('compras', 'order=created_at.desc&limit=100&select=*,proveedores(nombre)', tok)
+  const load = () => db.get('compras', 'order=created_at.desc&limit=200&select=*,proveedores(nombre)', tok)
     .then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
 
   useEffect(() => { load(); }, [tok]);
@@ -359,18 +362,59 @@ function ListaCompras({ tok, setTab }) {
   const ec = { pendiente: 'yellow', recibida: 'blue', verificada: 'green' };
   const mp = { contado: { label: '💵 Contado', bg: '#f0fdf4', color: '#15803d' }, credito: { label: '🗓 Crédito', bg: '#fefce8', color: '#a16207' } };
 
+  // Filtrar por vista (general/personal) y por rango de fechas
+  const filtradas = rows.filter(r => {
+    const tipoR = r.tipo_compra || 'general';
+    if (tipoR !== vista) return false;
+    if (fechaDesde && r.fecha < fechaDesde) return false;
+    if (fechaHasta && r.fecha > fechaHasta) return false;
+    return true;
+  });
+
+  const totalGeneral = rows.filter(r => (r.tipo_compra || 'general') === 'general').length;
+  const totalPersonal = rows.filter(r => r.tipo_compra === 'personal').length;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Selector de vista */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={() => setVista('general')} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', cursor: 'pointer', background: vista === 'general' ? '#16a34a' : '#f3f4f6', color: vista === 'general' ? '#fff' : '#374151', fontWeight: 700, fontSize: 13 }}>
+          📦 Compras de almacén ({totalGeneral})
+        </button>
+        <button onClick={() => setVista('personal')} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', cursor: 'pointer', background: vista === 'personal' ? '#a16207' : '#f3f4f6', color: vista === 'personal' ? '#fff' : '#374151', fontWeight: 700, fontSize: 13 }}>
+          🏠 Compras personales ({totalPersonal})
+        </button>
+      </div>
+
+      {vista === 'personal' && (
+        <div style={{ background: '#fefce8', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#a16207', fontWeight: 600 }}>
+          ℹ️ Estas compras (Ña María / Sintia) no afectan el inventario de almacén.
+        </div>
+      )}
+
       <Card>
-        <CardHead title="Compras registradas" sub="Clic en una fila para ver el detalle" />
+        <CardHead
+          title="Compras registradas"
+          sub="Clic en una fila para ver el detalle"
+          action={
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#374151' }} />
+              <span style={{ fontSize: 12, color: '#9ca3af' }}>a</span>
+              <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#374151' }} />
+              {(fechaDesde || fechaHasta) && (
+                <button onClick={() => { setFechaDesde(''); setFechaHasta(''); }} style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#6b7280', cursor: 'pointer' }}>✕ Limpiar</button>
+              )}
+            </div>
+          }
+        />
         {loading ? <p style={{ padding: 20, textAlign: 'center', color: '#9ca3af' }}>Cargando...</p> :
-          rows.length === 0 ? <p style={{ padding: 20, textAlign: 'center', color: '#9ca3af' }}>No hay compras registradas aún</p> :
+          filtradas.length === 0 ? <p style={{ padding: 20, textAlign: 'center', color: '#9ca3af' }}>No hay compras en este filtro</p> :
           <div>
-            {rows.map((r, i) => {
+            {filtradas.map((r, i) => {
               const metodo = r.metodo_pago || 'contado';
               const vencido = metodo === 'credito' && r.fecha_vencimiento_pago && new Date(r.fecha_vencimiento_pago) < new Date() && r.estado_pago !== 'pagado';
               return (
-                <div key={r.id} style={{ borderBottom: i < rows.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                <div key={r.id} style={{ borderBottom: i < filtradas.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
                   <div onClick={() => toggleDetalle(r)} style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', background: expandido === r.id ? '#f9fafb' : vencido ? '#fff5f5' : '#fff' }}>
                     <span style={{ fontSize: 16, color: '#9ca3af', flexShrink: 0 }}>{expandido === r.id ? '▾' : '▸'}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -384,6 +428,7 @@ function ListaCompras({ tok, setTab }) {
                       </div>
                       <div style={{ display: 'flex', gap: 12, fontSize: 12, color: '#9ca3af', flexWrap: 'wrap' }}>
                         <span>{fd(r.fecha)}</span>
+                        {r.numero_factura && <span>Fact. {r.numero_factura}</span>}
                         {r.fecha_vencimiento_pago && metodo === 'credito' && <span style={{ color: vencido ? '#dc2626' : '#a16207' }}>Vence: {fd(r.fecha_vencimiento_pago)}</span>}
                         {r.observacion && <span>{r.observacion}</span>}
                       </div>
@@ -460,9 +505,13 @@ function ListaCompras({ tok, setTab }) {
   );
 }
 
+
 // ── MODAL EDITAR COMPRA ─────────────────────────────────────
 function ModalEditarCompra({ tok, compra, onClose }) {
   const [provs, setProvs] = useState([]);
+  const [prods, setProds] = useState([]);
+  const [items, setItems] = useState([]);
+  const [loadingItems, setLoadingItems] = useState(true);
   const [form, setForm] = useState({
     proveedor_id: compra.proveedor_id || '',
     fecha: compra.fecha || '',
@@ -470,37 +519,106 @@ function ModalEditarCompra({ tok, compra, onClose }) {
     metodo_pago: compra.metodo_pago || 'contado',
     fecha_vencimiento_pago: compra.fecha_vencimiento_pago || '',
     estado_pago: compra.estado_pago || 'pendiente',
+    numero_factura: compra.numero_factura || '',
+    tipo_compra: compra.tipo_compra || 'general',
   });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     db.get('proveedores', 'order=nombre', tok).then(d => setProvs(Array.isArray(d) ? d : []));
-  }, [tok]);
+    db.get('productos', 'activo=eq.true&order=nombre', tok).then(d => setProds(Array.isArray(d) ? d : []));
+    db.get('compras_detalle', `compra_id=eq.${compra.id}&select=*,productos(nombre)`, tok).then(d => {
+      const arr = Array.isArray(d) ? d : [];
+      setItems(arr.map(it => ({
+        id: it.id, producto_id: it.producto_id, nombre_libre: it.productos?.nombre || '',
+        cantidad: String(it.cantidad), unidad: it.unidad, precio_unitario: String(it.precio_unitario),
+        destino: it.destino || 'almacen', _sugs: [], _showSugs: false,
+      })));
+      setLoadingItems(false);
+    });
+  }, [tok, compra.id]);
+
+  const upd = (i, k, v) => { const n = [...items]; n[i][k] = v; setItems(n); };
+
+  const buscarProd = (i, texto) => {
+    const n = [...items];
+    n[i].nombre_libre = texto;
+    n[i].producto_id = '';
+    n[i]._sugs = texto.length > 0 ? prods.filter(p => p.nombre.toLowerCase().includes(texto.toLowerCase())).slice(0, 6) : [];
+    n[i]._showSugs = n[i]._sugs.length > 0;
+    setItems(n);
+  };
+
+  const elegirProd = (i, prod) => {
+    const n = [...items];
+    n[i].nombre_libre = prod.nombre;
+    n[i].producto_id = prod.id;
+    n[i]._sugs = [];
+    n[i]._showSugs = false;
+    setItems(n);
+  };
+
+  const cerrarSugs = (i) => setTimeout(() => {
+    const n = [...items];
+    if (n[i]) { n[i]._showSugs = false; setItems(n); }
+  }, 200);
+
+  const addItem = () => setItems([...items, { id: null, producto_id: '', nombre_libre: '', cantidad: '', unidad: 'kg', precio_unitario: '', destino: 'almacen', _sugs: [], _showSugs: false }]);
+  const removeItem = async (i) => {
+    const it = items[i];
+    if (it.id) await fetch(`${SB_URL}/rest/v1/compras_detalle?id=eq.${it.id}`, { method: 'DELETE', headers: hdr(tok) });
+    setItems(items.filter((_, j) => j !== i));
+  };
+
+  const total = items.reduce((s, it) => s + parseFloat(it.cantidad || 0) * parseFloat(it.precio_unitario || 0), 0);
 
   const guardar = async () => {
     setSaving(true);
+    for (const it of items) {
+      if (!it.producto_id && it.nombre_libre) {
+        const existe = prods.find(p => p.nombre.toLowerCase() === it.nombre_libre.toLowerCase());
+        if (existe) { it.producto_id = existe.id; }
+        else {
+          const res = await db.post('productos', { nombre: it.nombre_libre.trim(), unidad: it.unidad, activo: true, es_producido: false }, tok);
+          const nuevo = Array.isArray(res) ? res[0] : res;
+          it.producto_id = nuevo?.id || null;
+        }
+      }
+      const subtotal = parseFloat(it.cantidad || 0) * parseFloat(it.precio_unitario || 0);
+      if (it.id) {
+        await db.patch('compras_detalle', `id=eq.${it.id}`, {
+          producto_id: it.producto_id, cantidad: parseFloat(it.cantidad), unidad: it.unidad,
+          precio_unitario: parseFloat(it.precio_unitario || 0), subtotal, destino: it.destino,
+        }, tok);
+      } else {
+        await db.post('compras_detalle', {
+          compra_id: compra.id, producto_id: it.producto_id, cantidad: parseFloat(it.cantidad), unidad: it.unidad,
+          precio_unitario: parseFloat(it.precio_unitario || 0), subtotal, destino: it.destino,
+        }, tok);
+      }
+    }
     await db.patch('compras', `id=eq.${compra.id}`, {
-      proveedor_id: form.proveedor_id,
-      fecha: form.fecha,
-      observacion: form.observacion,
+      proveedor_id: form.proveedor_id, fecha: form.fecha, observacion: form.observacion,
       metodo_pago: form.metodo_pago,
       fecha_vencimiento_pago: form.metodo_pago === 'credito' ? form.fecha_vencimiento_pago || null : null,
       estado_pago: form.metodo_pago === 'credito' ? form.estado_pago : 'pagado',
+      numero_factura: form.numero_factura, tipo_compra: form.tipo_compra, total,
     }, tok);
     setSaving(false);
     onClose();
   };
 
   const inp = { border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '11px 14px', fontSize: 14, color: '#111827', background: '#fff', width: '100%', boxSizing: 'border-box', outline: 'none' };
+  const inpSm = { border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff', width: '100%', boxSizing: 'border-box', outline: 'none' };
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
-        <div style={{ padding: '18px 22px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 680, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
+        <div style={{ padding: '18px 22px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: '#fff', zIndex: 10 }}>
           <p style={{ fontWeight: 800, fontSize: 16, color: '#111827', margin: 0 }}>✏️ Editar compra</p>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#9ca3af' }}>×</button>
         </div>
-        <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Proveedor</label>
             <select value={form.proveedor_id} onChange={e => setForm({ ...form, proveedor_id: e.target.value })} style={inp}>
@@ -508,10 +626,14 @@ function ModalEditarCompra({ tok, compra, onClose }) {
               {provs.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </select>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Fecha</label>
               <input type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} style={inp} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>N° Factura</label>
+              <input value={form.numero_factura} onChange={e => setForm({ ...form, numero_factura: e.target.value })} placeholder="Ej: 001-002-1234" style={inp} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Método de pago</label>
@@ -520,6 +642,13 @@ function ModalEditarCompra({ tok, compra, onClose }) {
                 <option value="credito">🗓 Crédito</option>
               </select>
             </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Tipo de compra</label>
+            <select value={form.tipo_compra} onChange={e => setForm({ ...form, tipo_compra: e.target.value })} style={inp}>
+              <option value="general">📦 General (impacta inventario)</option>
+              <option value="personal">🏠 Personal (no afecta inventario)</option>
+            </select>
           </div>
           {form.metodo_pago === 'credito' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, background: '#fefce8', borderRadius: 12, padding: 14 }}>
@@ -541,6 +670,47 @@ function ModalEditarCompra({ tok, compra, onClose }) {
             <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Observación</label>
             <input value={form.observacion} onChange={e => setForm({ ...form, observacion: e.target.value })} placeholder="Opcional" style={inp} />
           </div>
+
+          <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: 0 }}>Productos</p>
+              <button onClick={addItem} style={{ background: '#f0fdf4', color: '#15803d', border: 'none', borderRadius: 7, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>+ Agregar</button>
+            </div>
+            {loadingItems ? <p style={{ fontSize: 13, color: '#9ca3af' }}>Cargando productos...</p> : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {items.map((it, i) => (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: 8, background: '#fafafa', padding: 10, borderRadius: 10 }}>
+                    <div style={{ position: 'relative' }}>
+                      <input value={it.nombre_libre || ''} onChange={e => buscarProd(i, e.target.value)} onBlur={() => cerrarSugs(i)} placeholder="Producto..." style={inpSm} />
+                      {it._showSugs && (
+                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #16a34a', borderRadius: 8, zIndex: 50, maxHeight: 160, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
+                          {it._sugs.map(p => (
+                            <div key={p.id} onMouseDown={() => elegirProd(i, p)} style={{ padding: '7px 10px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid #f3f4f6' }}>{p.nombre}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <input type="number" placeholder="Cant." value={it.cantidad} onChange={e => upd(i, 'cantidad', e.target.value)} style={inpSm} />
+                    <select value={it.unidad} onChange={e => upd(i, 'unidad', e.target.value)} style={inpSm}>
+                      {['kg','g','litro','ml','unidad','caja','bolsa','paquete','rollo'].map(u => <option key={u}>{u}</option>)}
+                    </select>
+                    <input type="number" placeholder="Precio" value={it.precio_unitario} onChange={e => upd(i, 'precio_unitario', e.target.value)} style={inpSm} />
+                    <select value={it.destino} onChange={e => upd(i, 'destino', e.target.value)} style={inpSm}>
+                      <option value="almacen">→ Almacén</option>
+                      <option value="produccion">→ Producción</option>
+                    </select>
+                    <button onClick={() => removeItem(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16 }}>✕</button>
+                  </div>
+                ))}
+                {items.length > 0 && (
+                  <div style={{ textAlign: 'right', fontWeight: 700, fontSize: 15, color: '#111827', paddingTop: 6, borderTop: '1px solid #f3f4f6' }}>
+                    Nuevo total: {gs(total)}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
             <button onClick={guardar} disabled={saving} style={{ flex: 1, background: saving ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '13px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
               {saving ? 'Guardando...' : '✓ Guardar cambios'}
@@ -560,7 +730,7 @@ function CreditosCompras({ tok }) {
   const [filtro, setFiltro] = useState('todos');
 
   useEffect(() => {
-    db.get('compras', `metodo_pago=eq.credito&order=fecha_vencimiento_pago.asc&select=*,proveedores(nombre)`, tok)
+    db.get('compras', `metodo_pago=eq.credito&tipo_compra=eq.general&order=fecha_vencimiento_pago.asc&select=*,proveedores(nombre)`, tok)
       .then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
   }, [tok]);
 
@@ -642,8 +812,10 @@ function CreditosCompras({ tok }) {
 
 function NuevaCompra({ tok, onDone }) {
   const [provs, setProvs] = useState([]); const [prods, setProds] = useState([]);
-  const [form, setForm] = useState({ proveedor_id: '', fecha: new Date().toISOString().split('T')[0], observacion: '' });
+  const [form, setForm] = useState({ proveedor_id: '', fecha: new Date().toISOString().split('T')[0], observacion: '', numero_factura: '', tipo_compra: 'general' });
   const [items, setItems] = useState([]); const [saving, setSaving] = useState(false); const [err, setErr] = useState('');
+  const [confirmDup, setConfirmDup] = useState(null); // compra existente sospechada de duplicado
+
   useEffect(() => { db.get('proveedores', 'activo=eq.true&order=nombre', tok).then(d => setProvs(Array.isArray(d) ? d : [])); db.get('productos', 'activo=eq.true&order=nombre', tok).then(d => setProds(Array.isArray(d) ? d : [])); }, [tok]);
   const emptyItem = () => ({ producto_id: '', nombre_libre: '', cantidad: '', unidad: 'kg', precio_unitario: '', destino: 'almacen', _sugs: [], _showSugs: false });
   const addItem = () => setItems([...items, emptyItem()]);
@@ -673,10 +845,15 @@ function NuevaCompra({ tok, onDone }) {
     if (n[i]) { n[i]._showSugs = false; setItems(n); }
   }, 200);
 
-  const guardar = async () => {
-    if (!form.proveedor_id) { setErr('Seleccioná un proveedor'); return; }
-    if (items.length === 0) { setErr('Agregá al menos un producto'); return; }
-    if (items.some(it => !it.nombre_libre || !it.cantidad)) { setErr('Completá nombre y cantidad de todos los productos'); return; }
+  // Verificar si ya existe una compra muy similar (mismo proveedor + fecha + total)
+  const checkDuplicado = async () => {
+    const existentes = await db.get('compras', `proveedor_id=eq.${form.proveedor_id}&fecha=eq.${form.fecha}`, tok);
+    if (!Array.isArray(existentes)) return null;
+    const match = existentes.find(c => Math.abs(parseFloat(c.total) - total) < 1);
+    return match || null;
+  };
+
+  const procederGuardar = async () => {
     setSaving(true); setErr('');
     const itemsResueltos = [];
     for (const it of items) {
@@ -703,11 +880,47 @@ function NuevaCompra({ tok, onDone }) {
       onDone();
     } else { setErr('Error al guardar. Verificá los datos.'); setSaving(false); }
   };
+
+  const guardar = async () => {
+    if (!form.proveedor_id) { setErr('Seleccioná un proveedor'); return; }
+    if (items.length === 0) { setErr('Agregá al menos un producto'); return; }
+    if (items.some(it => !it.nombre_libre || !it.cantidad)) { setErr('Completá nombre y cantidad de todos los productos'); return; }
+    setErr('');
+
+    const dup = await checkDuplicado();
+    if (dup) { setConfirmDup(dup); return; }
+
+    procederGuardar();
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Card>
         <CardHead title="Datos de la compra" />
-        <div style={{ padding: 18 }}><Grid cols={3}><Select label="Proveedor *" value={form.proveedor_id} onChange={e => setForm({ ...form, proveedor_id: e.target.value })}><option value="">Seleccionar...</option>{provs.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</Select><Input label="Fecha" type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} /><Input label="Observación" value={form.observacion} onChange={e => setForm({ ...form, observacion: e.target.value })} placeholder="Opcional" /></Grid></div>
+        <div style={{ padding: 18 }}>
+          <Grid cols={3}>
+            <Select label="Proveedor *" value={form.proveedor_id} onChange={e => setForm({ ...form, proveedor_id: e.target.value })}>
+              <option value="">Seleccionar...</option>
+              {provs.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </Select>
+            <Input label="Fecha" type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} />
+            <Input label="N° de factura" value={form.numero_factura} onChange={e => setForm({ ...form, numero_factura: e.target.value })} placeholder="Ej: 001-002-0001234" />
+          </Grid>
+          <div style={{ marginTop: 14 }}>
+            <Grid cols={2}>
+              <Select label="Tipo de compra *" value={form.tipo_compra} onChange={e => setForm({ ...form, tipo_compra: e.target.value })}>
+                <option value="general">📦 General (impacta inventario)</option>
+                <option value="personal">🏠 Personal (Ña María / Sintia — no afecta inventario)</option>
+              </Select>
+              <Input label="Observación" value={form.observacion} onChange={e => setForm({ ...form, observacion: e.target.value })} placeholder="Opcional" />
+            </Grid>
+          </div>
+          {form.tipo_compra === 'personal' && (
+            <div style={{ marginTop: 12, background: '#fefce8', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#a16207', fontWeight: 600 }}>
+              ⚠️ Esta compra se registrará por separado y NO sumará al inventario de almacén.
+            </div>
+          )}
+        </div>
       </Card>
       <Card>
         <CardHead title="Productos comprados" action={<Btn variant="ghost" onClick={addItem}><Plus size={14} />Agregar</Btn>} />
@@ -741,6 +954,28 @@ function NuevaCompra({ tok, onDone }) {
         <Btn onClick={guardar} disabled={saving}>{saving ? 'Guardando...' : 'Guardar compra'}</Btn>
         <Btn variant="secondary" onClick={onDone}>Cancelar</Btn>
       </div>
+
+      {/* Modal aviso de posible duplicado */}
+      {confirmDup && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 420, padding: 28, boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
+            <p style={{ fontWeight: 800, fontSize: 17, color: '#111827', margin: '0 0 8px' }}>⚠️ Posible compra duplicada</p>
+            <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 10px' }}>
+              Ya existe una compra registrada con el mismo proveedor, fecha y monto:
+            </p>
+            <div style={{ background: '#fefce8', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#a16207' }}>
+              <strong>{gs(confirmDup.total)}</strong> · {fd(confirmDup.fecha)} {confirmDup.numero_factura ? `· Fact. ${confirmDup.numero_factura}` : ''}
+            </div>
+            <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 20px' }}>¿Querés registrar esta compra de todas formas?</p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => { setConfirmDup(null); procederGuardar(); }} style={{ flex: 1, background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                Sí, registrar igual
+              </button>
+              <button onClick={() => setConfirmDup(null)} style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 10, padding: '12px 20px', fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
