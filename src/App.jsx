@@ -374,8 +374,33 @@ function ListaCompras({ tok, setTab }) {
   const totalGeneral = rows.filter(r => (r.tipo_compra || 'general') === 'general').length;
   const totalPersonal = rows.filter(r => r.tipo_compra === 'personal').length;
 
+  // Resumen del mes actual
+  const hoy = new Date();
+  const inicioMes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
+  const nombreMes = hoy.toLocaleDateString('es-PY', { month: 'long', year: 'numeric' });
+
+  const comprasDelMes = rows.filter(r => r.fecha >= inicioMes);
+  const totalMesGeneral = comprasDelMes.filter(r => (r.tipo_compra || 'general') === 'general').reduce((s, r) => s + parseFloat(r.total || 0), 0);
+  const totalMesPersonal = comprasDelMes.filter(r => r.tipo_compra === 'personal').reduce((s, r) => s + parseFloat(r.total || 0), 0);
+  const cantMesGeneral = comprasDelMes.filter(r => (r.tipo_compra || 'general') === 'general').length;
+  const cantMesPersonal = comprasDelMes.filter(r => r.tipo_compra === 'personal').length;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Resumen del mes */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+        <div style={{ background: 'linear-gradient(135deg,#16a34a,#22c55e)', borderRadius: 14, padding: '16px 18px' }}>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', margin: '0 0 4px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5 }}>📦 Almacén · {nombreMes}</p>
+          <p style={{ fontSize: 24, fontWeight: 800, color: '#fff', margin: '0 0 2px' }}>{gs(totalMesGeneral)}</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', margin: 0 }}>{cantMesGeneral} compra{cantMesGeneral !== 1 ? 's' : ''} este mes</p>
+        </div>
+        <div style={{ background: 'linear-gradient(135deg,#a16207,#d97706)', borderRadius: 14, padding: '16px 18px' }}>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', margin: '0 0 4px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5 }}>🏠 Personales · {nombreMes}</p>
+          <p style={{ fontSize: 24, fontWeight: 800, color: '#fff', margin: '0 0 2px' }}>{gs(totalMesPersonal)}</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', margin: 0 }}>{cantMesPersonal} compra{cantMesPersonal !== 1 ? 's' : ''} este mes</p>
+        </div>
+      </div>
+
       {/* Selector de vista */}
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={() => setVista('general')} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', cursor: 'pointer', background: vista === 'general' ? '#16a34a' : '#f3f4f6', color: vista === 'general' ? '#fff' : '#374151', fontWeight: 700, fontSize: 13 }}>
