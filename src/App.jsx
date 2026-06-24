@@ -336,7 +336,7 @@ function ListaCompras({ tok, setTab }) {
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
 
-  const load = () => db.get('compras', 'order=created_at.desc&limit=200&select=*,proveedores(nombre)', tok)
+  const load = () => db.get('compras', 'order=fecha.desc,created_at.desc&limit=200&select=*,proveedores(nombre)', tok)
     .then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
 
   useEffect(() => { load(); }, [tok]);
