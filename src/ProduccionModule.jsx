@@ -164,7 +164,7 @@ function InventarioStock({ tok, tabla, titulo, emoji, tipoSalida }) {
                 {isEditing ? (
                   // Modo edición
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: 0 }}>{r.productos?.nombre}</p>
+                    <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: 0, textTransform: 'uppercase' }}>{r.productos?.nombre}</p>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                       <input type="number" value={ajusteVal} onChange={e => setAjusteVal(e.target.value)} autoFocus style={{ border: '2px solid #16a34a', borderRadius: 8, padding: '7px 10px', fontSize: 15, fontWeight: 700, width: 90, textAlign: 'center', outline: 'none' }} />
                       <span style={{ fontSize: 13, color: '#6b7280' }}>{r.productos?.unidad}</span>
@@ -178,7 +178,7 @@ function InventarioStock({ tok, tabla, titulo, emoji, tipoSalida }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                     <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setProductoDetalle(r)}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <p style={{ fontWeight: 600, fontSize: 14, color: '#111827', margin: 0 }}>{r.productos?.nombre}</p>
+                        <p style={{ fontWeight: 600, fontSize: 14, color: '#111827', margin: 0, textTransform: 'uppercase' }}>{r.productos?.nombre}</p>
                         {sinStock && <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 5, padding: '1px 7px', fontSize: 10, fontWeight: 700 }}>SIN STOCK</span>}
                         {bajo && <span style={{ background: '#fefce8', color: '#a16207', borderRadius: 5, padding: '1px 7px', fontSize: 10, fontWeight: 700 }}>STOCK BAJO</span>}
                       </div>
@@ -240,7 +240,7 @@ function ModalSalida({ tok, row, tabla, onClose }) {
         <div style={{ padding: '18px 22px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <p style={{ fontWeight: 800, fontSize: 15, color: '#111827', margin: 0 }}>Registrar salida</p>
-            <p style={{ fontSize: 13, color: '#9ca3af', margin: '2px 0 0' }}>{row.productos?.nombre} · Stock: {stockActual} {row.productos?.unidad}</p>
+            <p style={{ fontSize: 13, color: '#9ca3af', margin: '2px 0 0', textTransform: 'uppercase' }}>{row.productos?.nombre} · Stock: {stockActual} {row.productos?.unidad}</p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#9ca3af' }}>×</button>
         </div>
@@ -319,7 +319,7 @@ function HistorialProducto({ tok, row, tabla, onVolver }) {
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <button onClick={onVolver} style={{ background: '#f3f4f6', border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 14, cursor: 'pointer', fontWeight: 600 }}>← Volver</button>
         <div>
-          <p style={{ fontWeight: 800, fontSize: 16, color: '#111827', margin: 0 }}>{row.productos?.nombre}</p>
+          <p style={{ fontWeight: 800, fontSize: 16, color: '#111827', margin: 0, textTransform: 'uppercase' }}>{row.productos?.nombre}</p>
           <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>Stock actual: <strong style={{ color: stock === 0 ? '#dc2626' : '#15803d' }}>{stock} {unidad}</strong></p>
         </div>
       </div>
@@ -522,7 +522,7 @@ function NuevaHojita({ tok, onGuardado }) {
                   <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #16a34a', borderRadius: 10, zIndex: 50, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: 180, overflowY: 'auto' }}>
                     {m._sugerencias.map(f => (
                       <div key={f.id} onMouseDown={() => elegirFresco(i, f)} style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>{f.productos?.nombre}</span>
+                        <span style={{ textTransform: 'uppercase' }}>{f.productos?.nombre}</span>
                         <span style={{ color: '#16a34a', fontWeight: 700 }}>{f.stock_actual} {f.productos?.unidad}</span>
                       </div>
                     ))}
@@ -680,7 +680,7 @@ function Historial({ tok }) {
             return (
               <div key={l.id} style={{ padding: '12px 16px', borderBottom: i < lotes.length - 1 ? '1px solid #f3f4f6' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 2px' }}>{det?.productos?.nombre || '—'}</p>
+                  <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 2px', textTransform: 'uppercase' }}>{det?.productos?.nombre || '—'}</p>
                   <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>{fd(l.fecha)} · {det?.cantidad_producida || 0} paquetes</p>
                   <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
                     {calc.costoUnit > 0 && <span style={{ background: '#fff7ed', color: '#c2410c', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>Costo: {gs(calc.costoUnit)}</span>}
