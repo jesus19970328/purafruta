@@ -248,6 +248,28 @@ const Btn = ({ onClick, children, variant = 'primary', disabled, style: sx }) =>
 };
 const Input = ({ label, ...p }) => <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>{label && <label style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>{label}</label>}<input {...p} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#111827', outline: 'none', background: '#fafafa', ...(p.style || {}) }} /></div>;
 const Select = ({ label, children, ...p }) => <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>{label && <label style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>{label}</label>}<select {...p} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#111827', outline: 'none', background: '#fafafa', ...(p.style || {}) }}>{children}</select></div>;
+// Combo de producto: permite tipear libremente (autocompletado) Y elegir de la lista, con fondo/texto siempre legibles.
+let __comboIdSeq = 0;
+const ProductoCombo = ({ label, value, onChange, opciones, placeholder = 'Escribí o elegí...', style: sx }) => {
+  const [listId] = useState(() => `prodlist-${++__comboIdSeq}`);
+  // value guarda el NOMBRE escrito/elegido (texto libre). onChange recibe el texto.
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {label && <label style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>{label}</label>}
+      <input
+        list={listId}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoComplete="off"
+        style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#111827', outline: 'none', background: '#fafafa', width: '100%', boxSizing: 'border-box', ...(sx || {}) }}
+      />
+      <datalist id={listId}>
+        {opciones.map(o => <option key={o.id} value={o.nombre} />)}
+      </datalist>
+    </div>
+  );
+};
 const Badge = ({ children, color = 'gray' }) => {
   const c = { green: { bg: '#f0fdf4', text: '#15803d' }, yellow: { bg: '#fefce8', text: '#a16207' }, blue: { bg: '#eff6ff', text: '#1d4ed8' }, red: { bg: '#fef2f2', text: '#dc2626' }, purple: { bg: '#faf5ff', text: '#7c3aed' }, orange: { bg: '#fff7ed', text: '#c2410c' }, gray: { bg: '#f9fafb', text: '#6b7280' } };
   return <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 99, fontSize: 12, fontWeight: 500, background: c[color]?.bg, color: c[color]?.text }}>{children}</span>;
@@ -1324,7 +1346,7 @@ function Salidas({ tok }) {
 
   // Formulario de nueva salida
   const emptyHead = { fecha: new Date().toISOString().split('T')[0], tipo_salida: 'salida', destino: 'produccion', sucursal_id: '', responsable: '' };
-  const emptyItem = () => ({ producto_id: '', cantidad: '', unidad: 'unidad' });
+  const emptyItem = () => ({ nombre_producto: '', cantidad: '', unidad: 'unidad' });
   const [head, setHead] = useState(emptyHead);
   const [items, setItems] = useState([emptyItem()]);
 
@@ -1355,13 +1377,22 @@ function Salidas({ tok }) {
 
   const guardar = async () => {
     if (!head.responsable) { setErr('Ingresá el responsable'); return; }
-    if (items.some(it => !it.producto_id || !it.cantidad)) { setErr('Completá todos los productos y cantidades'); return; }
+    if (items.some(it => !it.nombre_producto || !it.cantidad)) { setErr('Completá todos los productos y cantidades'); return; }
+
+    // Resolver cada nombre escrito a un producto_id existente (no se crean productos nuevos desde Salidas)
+    const resueltos = items.map(it => {
+      const match = prods.find(p => p.nombre.trim().toLowerCase() === it.nombre_producto.trim().toLowerCase());
+      return { ...it, producto_id: match ? match.id : null };
+    });
+    const noEncontrado = resueltos.find(it => !it.producto_id);
+    if (noEncontrado) { setErr(`Producto no encontrado en el catálogo: "${noEncontrado.nombre_producto}"`); return; }
+
     setSaving(true); setErr('');
 
     // Generar un ID de grupo para vincular todas las filas de esta salida
     const grupoId = crypto.randomUUID();
 
-    for (const it of items) {
+    for (const it of resueltos) {
       // Guardar la salida
       await db.post('salidas_almacen', {
         grupo_salida_id: grupoId,
@@ -1448,19 +1479,15 @@ function Salidas({ tok }) {
               {items.map((it, i) => (
                 <div key={i} style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: 12, display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                   <div style={{ flex: 2, minWidth: 160 }}>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Producto *</label>
-                    <select value={it.producto_id} onChange={e => updItem(i, 'producto_id', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '9px 12px', fontSize: 14, color: '#111827', width: '100%', outline: 'none' }}>
-                      <option value="">Seleccionar...</option>
-                      {prods.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                    </select>
+                    <ProductoCombo label="Producto *" value={it.nombre_producto} onChange={v => updItem(i, 'nombre_producto', v)} opciones={prods} placeholder="Escribí o elegí producto..." />
                   </div>
                   <div style={{ flex: 1, minWidth: 90 }}>
                     <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Cantidad *</label>
-                    <input type="number" value={it.cantidad} onChange={e => updItem(i, 'cantidad', e.target.value)} placeholder="0" style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '9px 12px', fontSize: 14, color: '#111827', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
+                    <input type="number" value={it.cantidad} onChange={e => updItem(i, 'cantidad', e.target.value)} placeholder="0" style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '9px 12px', fontSize: 14, color: '#111827', background: '#fafafa', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
                   </div>
                   <div style={{ flex: 1, minWidth: 90 }}>
                     <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Unidad</label>
-                    <select value={it.unidad} onChange={e => updItem(i, 'unidad', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '9px 12px', fontSize: 14, color: '#111827', width: '100%', outline: 'none' }}>
+                    <select value={it.unidad} onChange={e => updItem(i, 'unidad', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '9px 12px', fontSize: 14, color: '#111827', background: '#fafafa', width: '100%', outline: 'none' }}>
                       {['kg','g','litro','ml','unidad','caja','bolsa','paquete'].map(u => <option key={u}>{u}</option>)}
                     </select>
                   </div>
