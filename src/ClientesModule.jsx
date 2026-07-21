@@ -781,6 +781,8 @@ function Clientes({ tok }) {
   const [show, setShow] = useState(false);
   const [form, setForm] = useState({ nombre: '', ruc: '', telefono: '', direccion: '', email: '', limite_credito: '' });
   const [saving, setSaving] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [editForm, setEditForm] = useState({});
 
   const load = () => db.get('clientes_externos', 'order=nombre&activo=neq.false', tok).then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
   useEffect(() => { load(); }, [tok]);
@@ -798,6 +800,21 @@ function Clientes({ tok }) {
       alert('Error al guardar el cliente. Verificá los datos e intentá de nuevo.');
     }
     setSaving(false);
+  };
+
+  const abrirEdicion = (c) => { setEditId(c.id); setEditForm({ nombre: c.nombre || '', ruc: c.ruc || '', telefono: c.telefono || '', email: c.email || '', direccion: c.direccion || '', limite_credito: c.limite_credito || '' }); };
+  const guardarEdicionCliente = async () => {
+    if (!editForm.nombre) return;
+    setSaving(true);
+    await db.patch('clientes_externos', `id=eq.${editId}`, { ...editForm, limite_credito: parseFloat(editForm.limite_credito || 0) }, tok);
+    setEditId(null);
+    setSaving(false);
+    load();
+  };
+  const eliminar = async (c) => {
+    if (!window.confirm(`¿Eliminar a ${c.nombre}? Esta acción no se puede deshacer.`)) return;
+    await db.patch('clientes_externos', `id=eq.${c.id}`, { activo: false }, tok);
+    load();
   };
 
   const confirmarPago = async () => {
@@ -885,15 +902,40 @@ function Clientes({ tok }) {
         rows.length === 0 ? <p style={{ textAlign: 'center', padding: 30, color: '#9ca3af' }}>No hay clientes registrados</p> :
           <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {rows.map(c => (
-              <div key={c.id} style={{ background: '#f9fafb', borderRadius: 12, padding: 14 }}>
-                <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 4px' }}>{c.nombre}</p>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13, color: '#6b7280' }}>
-                  {c.ruc && <span>RUC: {c.ruc}</span>}
-                  {c.telefono && <span>📞 {c.telefono}</span>}
-                  {c.email && <span>✉️ {c.email}</span>}
-                  {c.direccion && <span>📍 {c.direccion}</span>}
-                  {c.limite_credito > 0 && <span style={{ color: '#1d4ed8', fontWeight: 600 }}>Crédito: {gs(c.limite_credito)}</span>}
-                </div>
+              <div key={c.id} style={{ background: '#f9fafb', borderRadius: 12, padding: 14, border: '1px solid #e5e7eb' }}>
+                {editId === c.id ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                      {[['nombre', 'Nombre *', 'text'], ['ruc', 'RUC', 'text'], ['telefono', 'Teléfono', 'text'], ['email', 'Email', 'email'], ['direccion', 'Dirección', 'text'], ['limite_credito', 'Límite crédito (Gs.)', 'number']].map(([k, l, t]) => (
+                        <div key={k} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <label style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{l}</label>
+                          <input type={t} value={editForm[k]} onChange={e => setEditForm({ ...editForm, [k]: e.target.value })} style={inp} />
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={guardarEdicionCliente} disabled={saving || !editForm.nombre} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{saving ? 'Guardando...' : 'Guardar'}</button>
+                      <button onClick={() => setEditId(null)} style={{ background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                    <div>
+                      <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 4px' }}>{c.nombre}</p>
+                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13, color: '#6b7280' }}>
+                        {c.ruc && <span>RUC: {c.ruc}</span>}
+                        {c.telefono && <span>📞 {c.telefono}</span>}
+                        {c.email && <span>✉️ {c.email}</span>}
+                        {c.direccion && <span>📍 {c.direccion}</span>}
+                        {c.limite_credito > 0 && <span style={{ color: '#1d4ed8', fontWeight: 600 }}>Crédito: {gs(c.limite_credito)}</span>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => abrirEdicion(c)} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✏️ Editar</button>
+                      <button onClick={() => eliminar(c)} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Eliminar</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
