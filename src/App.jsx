@@ -38,7 +38,7 @@ const NAV = [
   { id: 'finanzas', label: 'Finanzas', icon: DollarSign, roles: ['admin','finanzas'] },
   { id: 'reportes', label: 'Reportes', icon: BarChart3, roles: ['admin','director','finanzas'] },
   { id: 'activos', label: 'Activos fijos', icon: Package, roles: ['admin','almacen','produccion','sucursal','director'] },
-  { id: 'clientes', label: 'Clientes externos', icon: ShoppingCart, roles: ['admin','finanzas'] },
+  { id: 'clientes', label: 'Clientes externos', icon: ShoppingCart, roles: ['admin','finanzas','director'] },
 ];
 
 export default function App() {
