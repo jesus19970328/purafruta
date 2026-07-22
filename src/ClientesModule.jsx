@@ -783,8 +783,25 @@ function Clientes({ tok }) {
   const [saving, setSaving] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const [stats, setStats] = useState({ ventasMes: 0, pedidosMes: 0, pendiente: 0 });
 
-  const load = () => db.get('clientes_externos', 'order=nombre&activo=neq.false', tok).then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
+  const load = () => {
+    const hoy = new Date();
+    const inicioMes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
+    Promise.all([
+      db.get('clientes_externos', 'order=nombre&activo=neq.false', tok),
+      db.get('pedidos_externos', `fecha=gte.${inicioMes}&select=total,estado`, tok),
+    ]).then(([c, p]) => {
+      setRows(Array.isArray(c) ? c : []);
+      const pedsMes = Array.isArray(p) ? p : [];
+      setStats({
+        ventasMes: pedsMes.reduce((s, x) => s + parseFloat(x.total || 0), 0),
+        pedidosMes: pedsMes.length,
+        pendiente: pedsMes.filter(x => ['pendiente', 'parcial', 'vencido'].includes(x.estado)).reduce((s, x) => s + parseFloat(x.total || 0), 0),
+      });
+      setLoading(false);
+    });
+  };
   useEffect(() => { load(); }, [tok]);
 
   const guardar = async () => {
@@ -887,6 +904,21 @@ function Clientes({ tok }) {
 
   return (
     <Card>
+      {/* Dashboard resumen */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, padding: '16px 18px', borderBottom: '1px solid #f3f4f6' }}>
+        {[
+          { label: 'Clientes registrados', valor: rows.length, color: '#1d4ed8', bg: '#eff6ff', icono: '👥' },
+          { label: 'Ventas del mes', valor: gs(stats.ventasMes), color: '#15803d', bg: '#f0fdf4', icono: '💰' },
+          { label: 'Pedidos del mes', valor: stats.pedidosMes, color: '#6d28d9', bg: '#f5f3ff', icono: '📦' },
+          { label: 'Saldo pendiente', valor: gs(stats.pendiente), color: '#dc2626', bg: '#fef2f2', icono: '⏳' },
+        ].map(s => (
+          <div key={s.label} style={{ background: s.bg, borderRadius: 12, padding: '12px 14px' }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.icono} {s.label}</p>
+            <p style={{ fontSize: 18, fontWeight: 800, color: s.color, margin: 0 }}>{s.valor}</p>
+          </div>
+        ))}
+      </div>
+
       <CardHead title="Clientes externos" sub="Compradores de paquetes congelados" action={<button onClick={() => setShow(!show)} style={{ background: '#f0fdf4', color: '#15803d', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>+ Nuevo</button>} />
       {show && (
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -898,11 +930,11 @@ function Clientes({ tok }) {
           <div style={{ display: 'flex', gap: 8 }}><button onClick={guardar} disabled={saving || !form.nombre} style={{ background: saving ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>{saving ? 'Guardando...' : 'Guardar'}</button><button onClick={() => setShow(false)} style={{ background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '10px 20px', fontSize: 14, cursor: 'pointer' }}>Cancelar</button></div>
         </div>
       )}
-      {loading ? <p style={{ textAlign: 'center', padding: 30, color: '#9ca3af' }}>Cargando...</p> :
-        rows.length === 0 ? <p style={{ textAlign: 'center', padding: 30, color: '#9ca3af' }}>No hay clientes registrados</p> :
-          <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {loading ? <p style={{ padding: 30, color: '#9ca3af' }}>Cargando...</p> :
+        rows.length === 0 ? <p style={{ padding: 30, color: '#9ca3af' }}>No hay clientes registrados</p> :
+          <div style={{ padding: '8px 14px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {rows.map(c => (
-              <div key={c.id} style={{ background: '#f9fafb', borderRadius: 12, padding: 14, border: '1px solid #e5e7eb' }}>
+              <div key={c.id} style={{ borderRadius: 10, padding: '10px 14px', border: '1px solid #e5e7eb', background: '#fff' }}>
                 {editId === c.id ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
@@ -919,10 +951,10 @@ function Clientes({ tok }) {
                     </div>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                    <div>
-                      <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 4px' }}>{c.nombre}</p>
-                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13, color: '#6b7280' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 2px' }}>{c.nombre}</p>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 12, color: '#6b7280' }}>
                         {c.ruc && <span>RUC: {c.ruc}</span>}
                         {c.telefono && <span>📞 {c.telefono}</span>}
                         {c.email && <span>✉️ {c.email}</span>}
