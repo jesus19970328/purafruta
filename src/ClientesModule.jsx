@@ -324,6 +324,17 @@ function DetallePedido({ pedido, tok, onVolver }) {
     load();
   };
 
+
+  const eliminarPedido = async () => {
+    if (!window.confirm("¿Eliminar este pedido? Se eliminarán también los pagos y el detalle. Esta acción no se puede deshacer.")) return;
+    setSaving(true);
+    await db.delete("pagos_externos", `pedido_id=eq.${pedido.id}`, tok);
+    await db.delete("pedidos_externos_detalle", `pedido_id=eq.${pedido.id}`, tok);
+    await db.delete("pedidos_externos", `id=eq.${pedido.id}`, tok);
+    setSaving(false);
+    onVolver();
+  };
+
   const guardarEdicion = async () => {
     setSaving(true);
     const nuevoTotal = itemsEdit.reduce((s, i) => s + parseFloat(i.cantidad || 0) * parseFloat(i.precio_unitario || 0), 0);
@@ -417,8 +428,10 @@ function DetallePedido({ pedido, tok, onVolver }) {
       <div style="background:#f9fafb;border-radius:12px;padding:18px;">
         <p style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Resumen de pago</p>
         <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;"><span style="color:#6b7280;">Medio de pago</span><span style="font-weight:600;color:#111827;">${pedido.medio_pago || '—'}</span></div>
+        ${pagos.length > 0 && pagos[0].banco ? `<div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;"><span style="color:#6b7280;">Banco</span><span style="font-weight:600;color:#111827;">${pagos[0].banco}</span></div>` : ''}
+        ${pagos.length > 0 && pagos[0].comprobante ? `<div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;"><span style="color:#6b7280;">N° Comprobante</span><span style="font-weight:600;color:#111827;">${pagos[0].comprobante}</span></div>` : ''}
         <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;"><span style="color:#6b7280;">Total pedido</span><span style="font-weight:700;color:#111827;">${gs(pedido.total)}</span></div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;"><span style="color:#6b7280;">Pagado</span><span style="font-weight:700;color:#16a34a;">${gs(pedido.total_pagado)}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;"><span style="color:#6b7280;">Pagado</span><span style="font-weight:700;color:#16a34a;">${gs(pedido.estado === 'pagado' ? pedido.total : pedido.total_pagado)}</span></div>
         ${saldo > 0 ? `<div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid #e5e7eb;margin-top:6px;font-size:14px;"><span style="font-weight:700;color:#dc2626;">Saldo pendiente</span><span style="font-weight:800;color:#dc2626;">${gs(saldo)}</span></div>` : ""}
       </div>
     </div>
@@ -482,6 +495,9 @@ function DetallePedido({ pedido, tok, onVolver }) {
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => setEditando(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '10px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
             ✏️ Editar
+          </button>
+          <button onClick={eliminarPedido} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fef2f2', color: '#dc2626', border: '1.5px solid #fecaca', borderRadius: 10, padding: '10px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+            🗑 Eliminar
           </button>
           <button onClick={imprimirPDF} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
             📄 Descargar PDF
