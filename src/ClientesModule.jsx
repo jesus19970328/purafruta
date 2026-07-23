@@ -975,9 +975,9 @@ function Clientes({ tok }) {
                   </div>
                 ) : (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 2px' }}>{c.nombre}</p>
-                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 12, color: '#6b7280' }}>
+                    <div style={{ minWidth: 0, textAlign: 'left' }}>
+                      <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 2px', textAlign: 'left' }}>{c.nombre}</p>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 12, color: '#6b7280', textAlign: 'left' }}>
                         {c.ruc && <span>RUC: {c.ruc}</span>}
                         {c.telefono && <span>📞 {c.telefono}</span>}
                         {c.email && <span>✉️ {c.email}</span>}
