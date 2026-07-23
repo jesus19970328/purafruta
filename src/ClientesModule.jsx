@@ -270,7 +270,8 @@ function DetallePedido({ pedido, tok, onVolver }) {
   const load = () => Promise.all([
     db.get('pedidos_externos_detalle', `pedido_id=eq.${pedido.id}&select=*,productos(nombre)`, tok),
     db.get('pagos_externos', `pedido_id=eq.${pedido.id}&order=created_at.desc`, tok),
-  ]).then(([d, p]) => { setDetalle(Array.isArray(d) ? d : []); setPagos(Array.isArray(p) ? p : []); });
+    db.get('productos', 'activo=eq.true&order=nombre', tok),
+  ]).then(([d, p, pr]) => { setDetalle(Array.isArray(d) ? d : []); setPagos(Array.isArray(p) ? p : []); setProds(Array.isArray(pr) ? pr : []); });
 
   useEffect(() => {
     load();
@@ -544,10 +545,40 @@ function DetallePedido({ pedido, tok, onVolver }) {
 
               {/* Líneas de productos */}
               <div>
-                <p style={{ fontWeight: 700, fontSize: 14, color: '#374151', margin: '0 0 10px' }}>Productos del pedido</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <p style={{ fontWeight: 700, fontSize: 14, color: '#374151', margin: 0 }}>Productos del pedido</p>
+                  <button onClick={() => setItemsEdit([...itemsEdit, { nombre_libre: '', cantidad: '', precio_unitario: '', _sugerencias: [], _mostrarSug: false }])} style={{ background: '#f0fdf4', color: '#15803d', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ Agregar producto</button>
+                </div>
                 {itemsEdit.map((it, i) => (
                   <div key={i} style={{ background: '#f9fafb', borderRadius: 10, padding: 12, marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: 0 }}>{it.nombre_libre}</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      {it.producto_id ? (
+                        <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: 0 }}>{it.nombre_libre}</p>
+                      ) : (
+                        <div style={{ flex: 1, position: 'relative' }}>
+                          <input
+                            value={it.nombre_libre}
+                            onChange={e => {
+                              const n = [...itemsEdit]; n[i].nombre_libre = e.target.value;
+                              const q = e.target.value.toLowerCase();
+                              n[i]._sugerencias = q.length > 1 ? prods.filter(p => p.nombre.toLowerCase().includes(q)).slice(0, 6) : [];
+                              n[i]._mostrarSug = n[i]._sugerencias.length > 0;
+                              setItemsEdit(n);
+                            }}
+                            placeholder="Nombre del producto..."
+                            style={{ ...inp, fontSize: 13 }}
+                          />
+                          {it._mostrarSug && (
+                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, zIndex: 50, boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
+                              {it._sugerencias.map(s => (
+                                <div key={s.id} onClick={() => { const n = [...itemsEdit]; n[i].nombre_libre = s.nombre; n[i].producto_id = s.id; n[i]._mostrarSug = false; setItemsEdit(n); }} style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', borderBottom: '1px solid #f3f4f6' }}>{s.nombre}</div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <button onClick={() => setItemsEdit(itemsEdit.filter((_, idx) => idx !== i))} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '4px 8px', fontSize: 12, cursor: 'pointer', marginLeft: 8, flexShrink: 0 }}>🗑</button>
+                    </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>Cantidad</label>
