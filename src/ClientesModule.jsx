@@ -7,6 +7,7 @@ const db = {
   get: (t, q, tok) => fetch(`${SB_URL}/rest/v1/${t}${q ? '?' + q : ''}`, { headers: { ...hdr(tok), 'Accept': 'application/json' } }).then(r => r.json()),
   post: (t, d, tok) => fetch(`${SB_URL}/rest/v1/${t}`, { method: 'POST', headers: hdr(tok), body: JSON.stringify(d) }).then(r => r.json()),
   patch: (t, f, d, tok) => fetch(`${SB_URL}/rest/v1/${t}?${f}`, { method: 'PATCH', headers: hdr(tok), body: JSON.stringify(d) }).then(r => r.json()),
+  delete: (t, f, tok) => fetch(`${SB_URL}/rest/v1/${t}?${f}`, { method: 'DELETE', headers: hdr(tok) }).then(r => r.ok ? r : r.json()),
 };
 
 const gs = (n) => new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(n || 0) + ' Gs.';
@@ -43,6 +44,7 @@ function Pedidos({ tok }) {
   const [form, setForm] = useState({ cliente_id: '', medio_pago: 'credito', observacion: '', fecha: new Date().toISOString().split('T')[0] });
   const [items, setItems] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [busca, setBusca] = useState('');
 
   const load = () => Promise.all([
     db.get('pedidos_externos', 'order=created_at.desc&limit=50&select=*,clientes_externos(nombre,telefono)', tok),
@@ -209,7 +211,12 @@ function Pedidos({ tok }) {
         {loading ? <p style={{ textAlign: 'center', padding: 30, color: '#9ca3af' }}>Cargando...</p> :
           pedidos.length === 0 ? <p style={{ textAlign: 'center', padding: 30, color: '#9ca3af' }}>No hay pedidos registrados</p> :
             <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {pedidos.map(p => (
+              <input
+                value={busca} onChange={e => setBusca(e.target.value)}
+                placeholder="🔍 Buscar por nombre de cliente..."
+                style={{ ...inp, marginBottom: 4 }}
+              />
+              {pedidos.filter(p => !busca || p.clientes_externos?.nombre?.toLowerCase().includes(busca.toLowerCase())).map(p => (
                 <div key={p.id} style={{ background: '#f9fafb', borderRadius: 12, padding: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
