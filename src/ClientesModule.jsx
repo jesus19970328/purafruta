@@ -23,11 +23,15 @@ const Tabs = ({ tabs, active, onChange }) => <div style={{ display: 'flex', gap:
 
 export default function ClientesModule({ tok }) {
   const [tab, setTab] = useState('pedidos');
+  const [pedidoDetalle, setPedidoDetalle] = useState(null);
+
+  if (pedidoDetalle) return <DetallePedido pedido={pedidoDetalle} tok={tok} onVolver={() => { setPedidoDetalle(null); }} />;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <Tabs tabs={[['pedidos', '📦 Pedidos'], ['clientes', '👥 Clientes'], ['cuentas', '💰 Cuentas pendientes']]} active={tab} onChange={setTab} />
       {tab === 'pedidos' && <Pedidos tok={tok} />}
-      {tab === 'clientes' && <Clientes tok={tok} />}
+      {tab === 'clientes' && <Clientes tok={tok} onVerPedido={p => { setPedidoDetalle(p); }} />}
       {tab === 'cuentas' && <CuentasPendientes tok={tok} />}
     </div>
   );
@@ -842,7 +846,7 @@ function DetallePedido({ pedido, tok, onVolver }) {
 }
 
 // ── CLIENTES ──────────────────────────────────────────────
-function Clientes({ tok }) {
+function Clientes({ tok, onVerPedido }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [show, setShow] = useState(false);
@@ -851,6 +855,18 @@ function Clientes({ tok }) {
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [stats, setStats] = useState({ ventasMes: 0, pedidosMes: 0, pendiente: 0 });
+  const [expandido, setExpandido] = useState(null);
+  const [pedidosCliente, setPedidosCliente] = useState([]);
+  const [loadingPedidos, setLoadingPedidos] = useState(false);
+
+  const toggleExpandido = async (c) => {
+    if (expandido === c.id) { setExpandido(null); return; }
+    setExpandido(c.id);
+    setLoadingPedidos(true);
+    const p = await db.get('pedidos_externos', `cliente_id=eq.${c.id}&order=fecha.desc`, tok);
+    setPedidosCliente(Array.isArray(p) ? p : []);
+    setLoadingPedidos(false);
+  };
 
   const load = () => {
     const hoy = new Date();
@@ -1018,9 +1034,13 @@ function Clientes({ tok }) {
                     </div>
                   </div>
                 ) : (
+                  <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                    <div style={{ minWidth: 0, textAlign: 'left' }}>
-                      <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 2px', textAlign: 'left' }}>{c.nombre}</p>
+                    <div style={{ minWidth: 0, textAlign: 'left', flex: 1 }}>
+                      <p
+                        onClick={() => toggleExpandido(c)}
+                        style={{ fontWeight: 700, fontSize: 14, color: '#1d4ed8', margin: '0 0 2px', textAlign: 'left', cursor: 'pointer', textDecoration: 'underline dotted' }}
+                      >{c.nombre} {expandido === c.id ? '▲' : '▼'}</p>
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 12, color: '#6b7280', textAlign: 'left' }}>
                         {c.ruc && <span>RUC: {c.ruc}</span>}
                         {c.telefono && <span>📞 {c.telefono}</span>}
@@ -1033,6 +1053,27 @@ function Clientes({ tok }) {
                       <button onClick={() => abrirEdicion(c)} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✏️ Editar</button>
                       <button onClick={() => eliminar(c)} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Eliminar</button>
                     </div>
+                  </div>
+                  {expandido === c.id && (
+                    <div style={{ marginTop: 10, borderTop: '1px solid #e5e7eb', paddingTop: 10 }}>
+                      {loadingPedidos ? <p style={{ fontSize: 12, color: '#9ca3af' }}>Cargando pedidos...</p> :
+                        pedidosCliente.length === 0 ? <p style={{ fontSize: 12, color: '#9ca3af' }}>Sin pedidos registrados</p> :
+                          pedidosCliente.map(p => {
+                            const estadoColor = { pendiente: '#f59e0b', parcial: '#f97316', pagado: '#16a34a', vencido: '#dc2626' };
+                            return (
+                              <div key={p.id} onClick={() => onVerPedido(p)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 10px', borderRadius: 8, background: '#f9fafb', marginBottom: 6, cursor: 'pointer', border: '1px solid #e5e7eb' }}>
+                                <div style={{ fontSize: 12, color: '#374151' }}>
+                                  <span style={{ fontWeight: 700 }}>#{String(p.id).slice(-6).toUpperCase()}</span>
+                                  <span style={{ marginLeft: 8, color: '#9ca3af' }}>{p.fecha ? new Date(p.fecha).toLocaleDateString('es-PY') : '—'}</span>
+                                  <span style={{ marginLeft: 8, background: estadoColor[p.estado] + '22', color: estadoColor[p.estado], borderRadius: 5, padding: '2px 7px', fontWeight: 600 }}>{p.estado}</span>
+                                </div>
+                                <span style={{ fontWeight: 700, fontSize: 13, color: '#111827' }}>{gs(p.total)}</span>
+                              </div>
+                            );
+                          })
+                      }
+                    </div>
+                  )}
                   </div>
                 )}
               </div>
