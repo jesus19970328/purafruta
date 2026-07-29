@@ -370,6 +370,19 @@ function DetallePedido({ pedido, tok, onVolver }) {
           precio_unitario: parseFloat(it.precio_unitario),
           subtotal,
         }, tok);
+      } else if (it.nombre_libre) {
+        let prodId = it.producto_id;
+        if (!prodId) {
+          const match = prods.find(p => p.nombre.trim().toLowerCase() === it.nombre_libre.trim().toLowerCase());
+          if (match) { prodId = match.id; }
+          else {
+            const nuevo = await db.post('productos', { nombre: it.nombre_libre.trim(), unidad: 'paquete', es_producido: true, activo: true }, tok);
+            prodId = Array.isArray(nuevo) ? nuevo[0]?.id : nuevo?.id;
+          }
+        }
+        if (prodId) {
+          await db.post('pedidos_externos_detalle', { pedido_id: pedido.id, producto_id: prodId, cantidad: parseFloat(it.cantidad), precio_unitario: parseFloat(it.precio_unitario), subtotal }, tok);
+        }
       }
     }
 
