@@ -45,7 +45,7 @@ function Pedidos({ tok }) {
   const [loading, setLoading] = useState(true);
   const [show, setShow] = useState(false);
   const [detalle, setDetalle] = useState(null);
-  const [form, setForm] = useState({ cliente_id: '', medio_pago: 'credito', observacion: '', fecha: new Date().toISOString().split('T')[0] });
+  const [form, setForm] = useState({ cliente_id: '', medio_pago: 'credito', observacion: '', fecha: new Date().toISOString().split('T')[0], fecha_entrega: '', zona: '' });
   const [items, setItems] = useState([]);
   const [saving, setSaving] = useState(false);
   const [busca, setBusca] = useState('');
@@ -154,6 +154,8 @@ function Pedidos({ tok }) {
                 <option value="cheque">📝 Cheque</option>
               </Sel>
               <Inp label="Observación" value={form.observacion} onChange={e => setForm({ ...form, observacion: e.target.value })} placeholder="Opcional" />
+              <Inp label="Fecha de entrega" type="date" value={form.fecha_entrega} onChange={e => setForm({ ...form, fecha_entrega: e.target.value })} />
+              <Inp label="Zona de entrega" value={form.zona} onChange={e => setForm({ ...form, zona: e.target.value })} placeholder="Ej: Centro, Luque, Lambaré..." />
             </div>
             {form.medio_pago === 'credito' && form.fecha && (
               <div style={{ background: '#fefce8', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#a16207' }}>
@@ -258,6 +260,8 @@ function DetallePedido({ pedido, tok, onVolver }) {
     fecha: pedido.fecha || '',
     medio_pago: pedido.medio_pago || 'efectivo',
     observacion: pedido.observacion || '',
+    fecha_entrega: pedido.fecha_entrega || '',
+    zona: pedido.zona || '',
   });
   const [itemsEdit, setItemsEdit] = useState([]);
   const [prods, setProds] = useState([]);
@@ -360,6 +364,8 @@ function DetallePedido({ pedido, tok, onVolver }) {
       fecha: formEdit.fecha,
       medio_pago: formEdit.medio_pago,
       observacion: formEdit.observacion,
+      fecha_entrega: formEdit.fecha_entrega || null,
+      zona: formEdit.zona || null,
       total: nuevoTotal,
       estado: nuevoEstado,
       fecha_vencimiento: nuevaFechaVenc,
@@ -559,6 +565,16 @@ function DetallePedido({ pedido, tok, onVolver }) {
                 <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Observación</label>
                 <input value={formEdit.observacion} onChange={e => setFormEdit({ ...formEdit, observacion: e.target.value })} placeholder="Opcional" style={inp} />
               </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Fecha de entrega</label>
+                  <input type="date" value={formEdit.fecha_entrega} onChange={e => setFormEdit({ ...formEdit, fecha_entrega: e.target.value })} style={inp} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Zona de entrega</label>
+                  <input value={formEdit.zona} onChange={e => setFormEdit({ ...formEdit, zona: e.target.value })} placeholder="Ej: Centro, Luque..." style={inp} />
+                </div>
+              </div>
 
               {/* Líneas de productos */}
               <div>
@@ -569,31 +585,27 @@ function DetallePedido({ pedido, tok, onVolver }) {
                 {itemsEdit.map((it, i) => (
                   <div key={i} style={{ background: '#f9fafb', borderRadius: 10, padding: 12, marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      {it.producto_id ? (
-                        <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: 0 }}>{it.nombre_libre}</p>
-                      ) : (
-                        <div style={{ flex: 1, position: 'relative' }}>
-                          <input
-                            value={it.nombre_libre}
-                            onChange={e => {
-                              const n = [...itemsEdit]; n[i].nombre_libre = e.target.value;
-                              const q = e.target.value.toLowerCase();
-                              n[i]._sugerencias = q.length > 1 ? prods.filter(p => p.nombre.toLowerCase().includes(q)).slice(0, 6) : [];
-                              n[i]._mostrarSug = n[i]._sugerencias.length > 0;
-                              setItemsEdit(n);
-                            }}
-                            placeholder="Nombre del producto..."
-                            style={{ ...inp, fontSize: 13 }}
-                          />
-                          {it._mostrarSug && (
-                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, zIndex: 50, boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
-                              {it._sugerencias.map(s => (
-                                <div key={s.id} onClick={() => { const n = [...itemsEdit]; n[i].nombre_libre = s.nombre; n[i].producto_id = s.id; n[i]._mostrarSug = false; setItemsEdit(n); }} style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', borderBottom: '1px solid #f3f4f6' }}>{s.nombre}</div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      <div style={{ flex: 1, position: 'relative' }}>
+                        <input
+                          value={it.nombre_libre}
+                          onChange={e => {
+                            const n = [...itemsEdit]; n[i].nombre_libre = e.target.value; n[i].producto_id = '';
+                            const q = e.target.value.toLowerCase();
+                            n[i]._sugerencias = q.length > 1 ? prods.filter(p => p.nombre.toLowerCase().includes(q)).slice(0, 6) : [];
+                            n[i]._mostrarSug = n[i]._sugerencias.length > 0;
+                            setItemsEdit(n);
+                          }}
+                          placeholder="Nombre del producto..."
+                          style={{ ...inp, fontSize: 13, fontWeight: 600 }}
+                        />
+                        {it._mostrarSug && (
+                          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, zIndex: 50, boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
+                            {it._sugerencias.map(s => (
+                              <div key={s.id} onClick={() => { const n = [...itemsEdit]; n[i].nombre_libre = s.nombre; n[i].producto_id = s.id; n[i]._mostrarSug = false; setItemsEdit(n); }} style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', borderBottom: '1px solid #f3f4f6' }}>{s.nombre}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <button onClick={() => setItemsEdit(itemsEdit.filter((_, idx) => idx !== i))} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '4px 8px', fontSize: 12, cursor: 'pointer', marginLeft: 8, flexShrink: 0 }}>🗑</button>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
