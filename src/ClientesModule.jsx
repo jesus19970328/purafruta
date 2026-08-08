@@ -60,8 +60,8 @@ function Pedidos({ tok }) {
       db.get('pedidos_externos', 'order=created_at.desc&limit=50&select=*,clientes_externos(nombre,telefono)', tok),
       db.get('clientes_externos', 'activo=neq.false&order=nombre', tok),
       db.get('productos', 'activo=eq.true&order=nombre', tok),
-      db.get('pedidos_externos', `fecha=gte.${inicioSemanaStr}&select=total,estado`, tok),
-      db.get('pedidos_externos', `fecha=gte.${inicioMes}&select=total,estado`, tok),
+      db.get('pedidos_externos', `fecha=gte.${inicioSemanaStr}&select=total,estado,fecha`, tok),
+      db.get('pedidos_externos', `fecha=gte.${inicioMes}&select=total,estado,fecha`, tok),
       db.get('clientes_externos', `created_at=gte.${inicioSemanaStr}&activo=neq.false&select=id`, tok),
     ]).then(([p, c, pr, semPeds, mesPeds, clientesSem]) => {
       setPedidos(Array.isArray(p) ? p : []);
@@ -428,7 +428,18 @@ function DetallePedido({ pedido, tok, onVolver }) {
     for (const it of itemsEdit) {
       const subtotal = parseFloat(it.cantidad || 0) * parseFloat(it.precio_unitario || 0);
       if (it.id) {
+        // Resolver producto_id si el nombre cambió
+        let prodId = it.producto_id;
+        if (!prodId && it.nombre_libre) {
+          const match = prods.find(p => p.nombre.trim().toLowerCase() === it.nombre_libre.trim().toLowerCase());
+          if (match) { prodId = match.id; }
+          else {
+            const nuevo = await db.post('productos', { nombre: it.nombre_libre.trim(), unidad: 'paquete', es_producido: true, activo: true }, tok);
+            prodId = Array.isArray(nuevo) ? nuevo[0]?.id : nuevo?.id;
+          }
+        }
         await db.patch('pedidos_externos_detalle', `id=eq.${it.id}`, {
+          ...(prodId ? { producto_id: prodId } : {}),
           cantidad: parseFloat(it.cantidad),
           precio_unitario: parseFloat(it.precio_unitario),
           subtotal,
