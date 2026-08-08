@@ -49,12 +49,36 @@ function Pedidos({ tok }) {
   const [items, setItems] = useState([]);
   const [saving, setSaving] = useState(false);
   const [busca, setBusca] = useState('');
+  const [stats, setStats] = useState({ semana: 0, mes: 0, clientesNuevosSemana: 0, pedidosSemana: 0, pedidosMes: 0 });
 
-  const load = () => Promise.all([
-    db.get('pedidos_externos', 'order=created_at.desc&limit=50&select=*,clientes_externos(nombre,telefono)', tok),
-    db.get('clientes_externos', 'activo=neq.false&order=nombre', tok),
-    db.get('productos', 'activo=eq.true&order=nombre', tok),
-  ]).then(([p, c, pr]) => { setPedidos(Array.isArray(p) ? p : []); setClientes(Array.isArray(c) ? c : []); setProds(Array.isArray(pr) ? pr : []); setLoading(false); });
+  const load = () => {
+    const hoy = new Date();
+    const inicioSemana = new Date(hoy); inicioSemana.setDate(hoy.getDate() - 6); inicioSemana.setHours(0,0,0,0);
+    const inicioMes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
+    const inicioSemanaStr = inicioSemana.toISOString().split('T')[0];
+    return Promise.all([
+      db.get('pedidos_externos', 'order=created_at.desc&limit=50&select=*,clientes_externos(nombre,telefono)', tok),
+      db.get('clientes_externos', 'activo=neq.false&order=nombre', tok),
+      db.get('productos', 'activo=eq.true&order=nombre', tok),
+      db.get('pedidos_externos', `fecha=gte.${inicioSemanaStr}&select=total,estado`, tok),
+      db.get('pedidos_externos', `fecha=gte.${inicioMes}&select=total,estado`, tok),
+      db.get('clientes_externos', `created_at=gte.${inicioSemanaStr}&activo=neq.false&select=id`, tok),
+    ]).then(([p, c, pr, semPeds, mesPeds, clientesSem]) => {
+      setPedidos(Array.isArray(p) ? p : []);
+      setClientes(Array.isArray(c) ? c : []);
+      setProds(Array.isArray(pr) ? pr : []);
+      const sem = Array.isArray(semPeds) ? semPeds : [];
+      const mes = Array.isArray(mesPeds) ? mesPeds : [];
+      setStats({
+        semana: sem.reduce((s, x) => s + parseFloat(x.total || 0), 0),
+        mes: mes.reduce((s, x) => s + parseFloat(x.total || 0), 0),
+        pedidosSemana: sem.length,
+        pedidosMes: mes.length,
+        clientesNuevosSemana: Array.isArray(clientesSem) ? clientesSem.length : 0,
+      });
+      setLoading(false);
+    });
+  };
 
   useEffect(() => { load(); }, [tok]);
 
@@ -119,13 +143,27 @@ function Pedidos({ tok }) {
   const guardar = async () => {
     if (!form.cliente_id || items.length === 0) return;
     setSaving(true);
-    const res = await db.post('pedidos_externos', { ...form, total, fecha_vencimiento: form.medio_pago === 'credito' ? vencimiento(form.fecha) : form.fecha, total_pagado: form.medio_pago !== 'credito' ? total : 0, estado: form.medio_pago !== 'credito' ? 'pagado' : 'pendiente' }, tok);
+    const payload = {
+      cliente_id: form.cliente_id,
+      medio_pago: form.medio_pago,
+      observacion: form.observacion,
+      fecha: form.fecha,
+      total,
+      fecha_vencimiento: form.medio_pago === 'credito' ? vencimiento(form.fecha) : form.fecha,
+      total_pagado: form.medio_pago !== 'credito' ? total : 0,
+      estado: form.medio_pago !== 'credito' ? 'pagado' : 'pendiente',
+    };
+    if (form.fecha_entrega) payload.fecha_entrega = form.fecha_entrega;
+    if (form.zona) payload.zona = form.zona;
+    const res = await db.post('pedidos_externos', payload, tok);
     const ped = Array.isArray(res) ? res[0] : res;
     if (ped?.id) {
       const itemsResueltos = await resolverItems();
       await db.post('pedidos_externos_detalle', itemsResueltos.map(i => ({ pedido_id: ped.id, producto_id: i.producto_id, cantidad: i.cantidad, precio_unitario: i.precio_unitario, subtotal: i.subtotal })), tok);
-      setForm({ cliente_id: '', medio_pago: 'credito', observacion: '', fecha: new Date().toISOString().split('T')[0] });
+      setForm({ cliente_id: '', medio_pago: 'credito', observacion: '', fecha: new Date().toISOString().split('T')[0], fecha_entrega: '', zona: '' });
       setItems([]); setShow(false); load();
+    } else {
+      alert('Error al guardar el pedido. Revisá los datos e intentá de nuevo.');
     }
     setSaving(false);
   };
@@ -139,6 +177,21 @@ function Pedidos({ tok }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <Card>
         <CardHead title="Pedidos de clientes externos" action={<Btn variant="ghost" onClick={() => setShow(!show)}>+ Nuevo pedido</Btn>} />
+        {/* Dashboard */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, padding: '0 14px 10px' }}>
+          {[
+            { label: 'Ventas esta semana', valor: gs(stats.semana), color: '#15803d', bg: '#f0fdf4', icono: '📈' },
+            { label: 'Ventas este mes', valor: gs(stats.mes), color: '#1d4ed8', bg: '#eff6ff', icono: '💰' },
+            { label: 'Pedidos esta semana', valor: stats.pedidosSemana, color: '#6d28d9', bg: '#f5f3ff', icono: '📦' },
+            { label: 'Pedidos este mes', valor: stats.pedidosMes, color: '#0369a1', bg: '#f0f9ff', icono: '🗓' },
+            { label: 'Clientes nuevos (7d)', valor: stats.clientesNuevosSemana, color: '#b45309', bg: '#fffbeb', icono: '👥' },
+          ].map(s => (
+            <div key={s.label} style={{ background: s.bg, borderRadius: 10, padding: '10px 12px' }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.4 }}>{s.icono} {s.label}</p>
+              <p style={{ fontSize: 16, fontWeight: 800, color: s.color, margin: 0 }}>{s.valor}</p>
+            </div>
+          ))}
+        </div>
         {show && (
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
