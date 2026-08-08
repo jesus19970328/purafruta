@@ -374,7 +374,7 @@ function NuevaHojita({ tok, onGuardado }) {
   const [err, setErr] = useState('');
 
   const [general, setGeneral] = useState({ fecha: new Date().toISOString().split('T')[0], producto_id: '', gramaje: '', tamano: 'grande', congelador_nro: '', numero_hojita: '' });
-  const [materia, setMateria] = useState(Array(6).fill(null).map(() => ({ nombre: '', fecha_mp: '', peso_bruto: '', peso_neto: '', sobra_neto: '', producto_id: '', _sugerencias: [], _mostrarSug: false })));
+  const [materia, setMateria] = useState(Array(6).fill(null).map(() => ({ nombre: '', fecha_mp: '', peso_bruto: '', peso_neto: '', sobra_neto: '', producto_id: '', precio_unitario: '', udm: 'kg', _sugerencias: [], _mostrarSug: false })));
   const [paquetes, setPaquetes] = useState('');
   const [operadores, setOperadores] = useState(Array(3).fill(null).map(() => ({ nombre: '', inicio: '', fin: '' })));
   const [indirectos, setIndirectos] = useState({ bolsa_vacio: '', bolsa_basura: '', guantes: '', vasos: '', costo_bolsa_vacio: 500, costo_bolsa_basura: 300, costo_guante: 2000, costo_vaso: 200 });
@@ -435,13 +435,31 @@ function NuevaHojita({ tok, onGuardado }) {
   const costoInd = (parseFloat(indirectos.bolsa_vacio || 0) * indirectos.costo_bolsa_vacio) + (parseFloat(indirectos.bolsa_basura || 0) * indirectos.costo_bolsa_basura) + (parseFloat(indirectos.guantes || 0) * indirectos.costo_guante) + (parseFloat(indirectos.vasos || 0) * indirectos.costo_vaso);
   const cantPaq = parseFloat(paquetes || 0);
 
-  // Costo materia prima usando última compra
-  const costoMP = materia.filter(m => m.producto_id && parseFloat(m.peso_neto) > 0).reduce((s, m) => {
-    const precio = preciosMP[m.producto_id];
-    if (!precio) return s;
-    const usadoG = parseFloat(m.peso_neto) - parseFloat(m.sobra_neto || 0);
-    const usadoKg = usadoG / 1000;
-    return s + (usadoKg * precio.precioKg);
+  // Convierte peso_neto (en gramos) a la UDM del ingrediente para calcular costo
+  const calcularCostoIngrediente = (m) => {
+    const pesoNeto = parseFloat(m.peso_neto || 0);
+    const precio = parseFloat(m.precio_unitario || 0);
+    if (!precio || !pesoNeto) return 0;
+    // Convertir gramos a la UDM elegida
+    let cantidad;
+    if (m.udm === 'kg') cantidad = pesoNeto / 1000;
+    else if (m.udm === 'g') cantidad = pesoNeto;
+    else if (m.udm === 'lt') cantidad = pesoNeto / 1000;
+    else if (m.udm === 'ml') cantidad = pesoNeto;
+    else cantidad = pesoNeto; // unidad
+    return cantidad * precio;
+  };
+
+  // Costo materia prima usando última compra o precio manual ingresado
+  const costoMP = materia.filter(m => m.nombre && parseFloat(m.peso_neto) > 0).reduce((s, m) => {
+    // Primero intenta usar precio de la última compra
+    if (m.producto_id && preciosMP[m.producto_id]) {
+      const usadoG = parseFloat(m.peso_neto) - parseFloat(m.sobra_neto || 0);
+      return s + ((usadoG / 1000) * preciosMP[m.producto_id].precioKg);
+    }
+    // Si no hay compra registrada, usa el precio manual ingresado
+    if (m.precio_unitario) return s + calcularCostoIngrediente(m);
+    return s;
   }, 0);
 
   const costoTotal = costoMO + costoInd + costoMP;
@@ -536,6 +554,20 @@ function NuevaHojita({ tok, onGuardado }) {
                 <Inp label="Peso Neto (g)" type="number" value={m.peso_neto} onChange={e => updM(i, 'peso_neto', e.target.value)} placeholder="0" />
                 <Inp label="Sobra Neto (g)" type="number" value={m.sobra_neto} onChange={e => updM(i, 'sobra_neto', e.target.value)} placeholder="0" />
               </Row2>
+              <Row2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280' }}>UDM</label>
+                  <select value={m.udm} onChange={e => updM(i, 'udm', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#111827', background: '#fafafa', outline: 'none' }}>
+                    {['kg', 'g', 'lt', 'ml', 'unidad'].map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+                <Inp label="Precio unitario (Gs. por UDM)" type="number" value={m.precio_unitario} onChange={e => updM(i, 'precio_unitario', e.target.value)} placeholder="Ej: 5000" />
+              </Row2>
+              {m.nombre && m.precio_unitario && parseFloat(m.peso_neto) > 0 && (
+                <div style={{ background: '#eff6ff', borderRadius: 8, padding: '7px 12px', fontSize: 12, color: '#1d4ed8', fontWeight: 600 }}>
+                  Costo estimado: {gs(calcularCostoIngrediente(m))}
+                </div>
+              )}
             </div>
           ))}
           {(totalNeto > 0 || totalSobra > 0) && (
