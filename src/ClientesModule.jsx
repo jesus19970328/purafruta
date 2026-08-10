@@ -156,6 +156,7 @@ function Pedidos({ tok }) {
     if (form.fecha_entrega) payload.fecha_entrega = form.fecha_entrega;
     if (form.zona) payload.zona = form.zona;
     const res = await db.post('pedidos_externos', payload, tok);
+    console.log('Respuesta Supabase pedidos_externos:', JSON.stringify(res));
     const ped = Array.isArray(res) ? res[0] : res;
     if (ped?.id) {
       const itemsResueltos = await resolverItems();
