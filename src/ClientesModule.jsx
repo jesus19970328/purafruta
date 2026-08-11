@@ -153,8 +153,8 @@ function Pedidos({ tok }) {
       total_pagado: form.medio_pago !== 'credito' ? total : 0,
       estado: form.medio_pago !== 'credito' ? 'pagado' : 'pendiente',
     };
-    if (form.fecha_entrega) payload.fecha_entrega = form.fecha_entrega;
-    if (form.zona) payload.zona = form.zona;
+    if (form.fecha_entrega) { /* pendiente schema cache */ }
+    if (form.zona) { /* pendiente schema cache */ }
     const res = await db.post('pedidos_externos', payload, tok);
     console.log('Respuesta Supabase pedidos_externos:', JSON.stringify(res));
     const ped = Array.isArray(res) ? res[0] : res;
