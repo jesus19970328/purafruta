@@ -68,7 +68,7 @@ export default function ProduccionModule({ tok }) {
   const [tab, setTab] = useState('nueva');
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <Tabs tabs={[['nueva', '+ Nueva hojita'], ['historial', 'Historial'], ['frescos', '🍃 Frescos'], ['congelados', '❄️ Congelados']]} active={tab} onChange={setTab} />
+      <Tabs tabs={[['nueva', '+ Nueva hojita'], ['historial', 'Historial'], ['frescos', 'Frescos'], ['congelados', 'Congelados']]} active={tab} onChange={setTab} />
       {tab === 'nueva' && <NuevaHojita tok={tok} onGuardado={() => setTab('historial')} />}
       {tab === 'historial' && <Historial tok={tok} />}
       {tab === 'frescos' && <InventarioStock tok={tok} tabla="sucursal_inventario" titulo="Inventario de Frescos" emoji="🍃" tipoSalida="salida_produccion" />}
@@ -170,7 +170,7 @@ function InventarioStock({ tok, tabla, titulo, emoji, tipoSalida }) {
                       <span style={{ fontSize: 13, color: '#6b7280' }}>{r.productos?.unidad}</span>
                       <input value={ajusteMotivo} onChange={e => setAjusteMotivo(e.target.value)} placeholder="Motivo (opcional)" style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '7px 10px', fontSize: 12, outline: 'none', flex: 1, minWidth: 120 }} />
                       <button onClick={() => guardarAjuste(r)} disabled={saving} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{saving ? '...' : '✓'}</button>
-                      <button onClick={() => { setAjusteId(null); setAjusteVal(''); setAjusteMotivo(''); }} style={{ background: '#f3f4f6', color: '#6b7280', border: 'none', borderRadius: 8, padding: '8px 10px', fontSize: 13, cursor: 'pointer' }}>✕</button>
+                      <button onClick={() => { setAjusteId(null); setAjusteVal(''); setAjusteMotivo(''); }} style={{ background: '#f3f4f6', color: '#6b7280', border: 'none', borderRadius: 8, padding: '8px 10px', fontSize: 13, cursor: 'pointer' }}>×</button>
                     </div>
                   </div>
                 ) : (
@@ -247,7 +247,7 @@ function ModalSalida({ tok, row, tabla, onClose }) {
         <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Tipo */}
           <div style={{ display: 'flex', gap: 8 }}>
-            {[['salida_sucursal', '🏪 A sucursal'], ['salida_consumo', '🍽 Consumo interno']].map(([val, lbl]) => (
+            {[['salida_sucursal', 'A sucursal'], ['salida_consumo', 'Consumo interno']].map(([val, lbl]) => (
               <button key={val} onClick={() => setTipo(val)} style={{ flex: 1, padding: '10px', borderRadius: 10, border: `2px solid ${tipo === val ? '#1d4ed8' : '#e5e7eb'}`, background: tipo === val ? '#eff6ff' : '#fff', color: tipo === val ? '#1d4ed8' : '#374151', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{lbl}</button>
             ))}
           </div>
@@ -280,10 +280,10 @@ function ModalSalida({ tok, row, tabla, onClose }) {
               </span>
             </div>
           )}
-          {err && <p style={{ color: '#dc2626', fontSize: 13, margin: 0 }}>⚠️ {err}</p>}
+          {err && <p style={{ color: '#dc2626', fontSize: 13, margin: 0 }}>{err}</p>}
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={guardar} disabled={saving} style={{ flex: 1, background: saving ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '13px', fontSize: 15, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              {saving ? 'Guardando...' : '✓ Confirmar salida'}
+              {saving ? 'Guardando...' : 'Confirmar salida'}
             </button>
             <button onClick={onClose} style={{ background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '13px 16px', cursor: 'pointer' }}>Cancelar</button>
           </div>
@@ -508,7 +508,7 @@ function NuevaHojita({ tok, onGuardado }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 40 }}>
       <Card>
-        <CardHead title="📋 Planilla de Producción" sub="Purafruta — completá todos los campos" />
+        <CardHead title="Planilla de Producción" sub="Purafruta — completá todos los campos" />
         <div style={sec}>
           <Row2>
             <Inp label="N° de hojita" value={general.numero_hojita} onChange={e => setGeneral({ ...general, numero_hojita: e.target.value })} placeholder="Ej: 5542" />
@@ -527,7 +527,7 @@ function NuevaHojita({ tok, onGuardado }) {
       </Card>
 
       <Card>
-        <CardHead title="🍓 Materia Prima" sub="Buscá en frescos o escribí el nombre · Pesos en gramos" />
+        <CardHead title="Materia Prima" sub="Buscá en frescos o escribí el nombre · Pesos en gramos" />
         <div style={sec}>
           {materia.map((m, i) => (
             <div key={i} style={{ background: '#f9fafb', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -546,7 +546,7 @@ function NuevaHojita({ tok, onGuardado }) {
                     ))}
                   </div>
                 )}
-                {m.producto_id && <p style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, margin: '3px 0 0' }}>✓ Vinculado a frescos — stock se descontará al guardar</p>}
+                {m.producto_id && <p style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, margin: '3px 0 0' }}>Vinculado a frescos — stock se descontará al guardar</p>}
               </div>
               <Inp label="Fecha M.P." type="date" value={m.fecha_mp} onChange={e => updM(i, 'fecha_mp', e.target.value)} />
               <Row2>
@@ -581,7 +581,7 @@ function NuevaHojita({ tok, onGuardado }) {
       </Card>
 
       <Card>
-        <CardHead title="📦 Cantidad Producida" />
+        <CardHead title="Cantidad Producida" />
         <div style={sec}>
           <Inp label="Paquetes producidos *" type="number" value={paquetes} onChange={e => setPaquetes(e.target.value)} placeholder="Ej: 57" style={{ fontSize: 32, fontWeight: 700, textAlign: 'center', color: '#15803d', padding: '16px' }} />
         </div>
@@ -614,9 +614,9 @@ function NuevaHojita({ tok, onGuardado }) {
       </Card>
 
       <Card>
-        <CardHead title="🧤 Materiales Indirectos" sub="Cantidades usadas en esta producción" />
+        <CardHead title="Materiales Indirectos" sub="Cantidades usadas en esta producción" />
         <div style={sec}>
-          {[{ key: 'bolsa_vacio', label: '🛍 Bolsa al vacío', costoKey: 'costo_bolsa_vacio' }, { key: 'bolsa_basura', label: '🗑 Bolsa de basura', costoKey: 'costo_bolsa_basura' }, { key: 'guantes', label: '🧤 Guantes (pares)', costoKey: 'costo_guante' }, { key: 'vasos', label: '🥤 Vasos', costoKey: 'costo_vaso' }].map(({ key, label, costoKey }) => (
+          {[{ key: 'bolsa_vacio', label: 'Bolsa al vacío', costoKey: 'costo_bolsa_vacio' }, { key: 'bolsa_basura', label: '🗑 Bolsa de basura', costoKey: 'costo_bolsa_basura' }, { key: 'guantes', label: 'Guantes (pares)', costoKey: 'costo_guante' }, { key: 'vasos', label: '🥤 Vasos', costoKey: 'costo_vaso' }].map(({ key, label, costoKey }) => (
             <div key={key} style={{ background: '#f9fafb', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>{label}</div>
               <Row2>
@@ -631,7 +631,7 @@ function NuevaHojita({ tok, onGuardado }) {
       </Card>
 
       <Card>
-        <CardHead title="📝 Otras Tareas" sub="Tareas adicionales de la jornada" />
+        <CardHead title="Otras Tareas" sub="Tareas adicionales de la jornada" />
         <div style={sec}>
           {tareas.map((t, i) => (
             <div key={i} style={{ background: '#f9fafb', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -647,11 +647,11 @@ function NuevaHojita({ tok, onGuardado }) {
       </Card>
 
       <Card style={{ border: '2px solid #16a34a' }}>
-        <CardHead title="💰 Resumen de Costos" sub="Calculado automáticamente · 13.000 Gs/hora · Margen 55%" />
+        <CardHead title="Resumen de Costos" sub="Calculado automáticamente · 13.000 Gs/hora · Margen 55%" />
         <div style={sec}>
           {costoMP === 0 && materia.some(m => m.producto_id) && !tienePreciosMP && (
             <div style={{ background: '#fefce8', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#a16207', fontWeight: 600 }}>
-              ⚠️ Sin precio de compra para los ingredientes — registrá las compras para incluir el costo de MP en el cálculo
+              Sin precio de compra para los ingredientes — registrá las compras para incluir el costo de MP en el cálculo
             </div>
           )}
           {[
@@ -671,7 +671,7 @@ function NuevaHojita({ tok, onGuardado }) {
       </Card>
 
       <Card>
-        <CardHead title="✍️ Firmas y Responsables" />
+        <CardHead title="Firmas y Responsables" />
         <div style={sec}>
           <Inp label="Nombres de operadores" value={firmas.nombres_operadores} onChange={e => setFirmas({ ...firmas, nombres_operadores: e.target.value })} placeholder="Ej: Caroliliz, Graciela, Andresa" />
           <Row2>
@@ -681,8 +681,8 @@ function NuevaHojita({ tok, onGuardado }) {
         </div>
       </Card>
 
-      {err && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: 14, color: '#dc2626', fontSize: 14 }}>⚠️ {err}</div>}
-      <Btn onClick={guardar} disabled={saving} full>{saving ? 'Guardando...' : '✓ Cerrar y guardar hojita'}</Btn>
+      {err && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: 14, color: '#dc2626', fontSize: 14 }}>{err}</div>}
+      <Btn onClick={guardar} disabled={saving} full>{saving ? 'Guardando...' : 'Cerrar y guardar hojita'}</Btn>
     </div>
   );
 }
@@ -747,7 +747,7 @@ function DetalleHojita({ lote, onVolver }) {
         </div>
       </div>
       <Card style={{ border: '2px solid #16a34a' }}>
-        <CardHead title="💰 Resumen de costos" />
+        <CardHead title="Resumen de costos" />
         <div style={sec}>
           {[
             ['Paquetes', `${det?.cantidad_producida || 0} paq.`, '#f9fafb', '#374151'],
@@ -766,7 +766,7 @@ function DetalleHojita({ lote, onVolver }) {
         </div>
       </Card>
       <Card>
-        <CardHead title="🍓 Materia prima" />
+        <CardHead title="Materia prima" />
         <div style={sec}>
           {materia.filter(m => m.nombre).map((m, i) => (
             <div key={i} style={{ background: '#f9fafb', borderRadius: 10, padding: 12 }}>
@@ -792,7 +792,7 @@ function DetalleHojita({ lote, onVolver }) {
         </div>
       </Card>
       <Card>
-        <CardHead title="✍️ Firmas" />
+        <CardHead title="Firmas" />
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {[['Operadores', firmas.nombres_operadores], ['Jefe de Prod.', firmas.jefe_prod], ['Almacén', firmas.firma_almacen]].map(([l, v]) => (
             <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f3f4f6', fontSize: 14 }}>

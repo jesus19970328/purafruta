@@ -29,7 +29,7 @@ export default function ClientesModule({ tok }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <Tabs tabs={[['pedidos', '📦 Pedidos'], ['clientes', '👥 Clientes'], ['cuentas', '💰 Cuentas pendientes']]} active={tab} onChange={setTab} />
+      <Tabs tabs={[['pedidos', 'Pedidos'], ['clientes', 'Clientes'], ['cuentas', 'Cuentas pendientes']]} active={tab} onChange={setTab} />
       {tab === 'pedidos' && <Pedidos tok={tok} />}
       {tab === 'clientes' && <Clientes tok={tok} onVerPedido={p => { setPedidoDetalle(p); }} />}
       {tab === 'cuentas' && <CuentasPendientes tok={tok} />}
@@ -170,7 +170,7 @@ function Pedidos({ tok }) {
   };
 
   const ec = { pendiente: 'yellow', parcial: 'orange', pagado: 'green', vencido: 'red' };
-  const ep = { efectivo: '💵', transferencia: '🏦', cheque: '📝', credito: '🗓' };
+  const ep = { efectivo: '', transferencia: '', cheque: '', credito: '' };
 
   if (detalle) return <DetallePedido pedido={detalle} tok={tok} onVolver={() => { setDetalle(null); load(); }} />;
 
@@ -181,11 +181,11 @@ function Pedidos({ tok }) {
         {/* Dashboard */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, padding: '0 14px 10px' }}>
           {[
-            { label: 'Ventas esta semana', valor: gs(stats.semana), color: '#15803d', bg: '#f0fdf4', icono: '📈' },
-            { label: 'Ventas este mes', valor: gs(stats.mes), color: '#1d4ed8', bg: '#eff6ff', icono: '💰' },
-            { label: 'Pedidos esta semana', valor: stats.pedidosSemana, color: '#6d28d9', bg: '#f5f3ff', icono: '📦' },
-            { label: 'Pedidos este mes', valor: stats.pedidosMes, color: '#0369a1', bg: '#f0f9ff', icono: '🗓' },
-            { label: 'Clientes nuevos (7d)', valor: stats.clientesNuevosSemana, color: '#b45309', bg: '#fffbeb', icono: '👥' },
+            { label: 'Ventas esta semana', valor: gs(stats.semana), color: '#15803d', bg: '#f0fdf4', icono: '' },
+            { label: 'Ventas este mes', valor: gs(stats.mes), color: '#1d4ed8', bg: '#eff6ff', icono: '' },
+            { label: 'Pedidos esta semana', valor: stats.pedidosSemana, color: '#6d28d9', bg: '#f5f3ff', icono: '' },
+            { label: 'Pedidos este mes', valor: stats.pedidosMes, color: '#0369a1', bg: '#f0f9ff', icono: '' },
+            { label: 'Clientes nuevos (7d)', valor: stats.clientesNuevosSemana, color: '#b45309', bg: '#fffbeb', icono: '' },
           ].map(s => (
             <div key={s.label} style={{ background: s.bg, borderRadius: 10, padding: '10px 12px' }}>
               <p style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.4 }}>{s.icono} {s.label}</p>
@@ -202,10 +202,10 @@ function Pedidos({ tok }) {
               </Sel>
               <Inp label="Fecha" type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} />
               <Sel label="Medio de pago" value={form.medio_pago} onChange={e => setForm({ ...form, medio_pago: e.target.value })}>
-                <option value="credito">🗓 Crédito 15 días</option>
-                <option value="efectivo">💵 Efectivo al contado</option>
-                <option value="transferencia">🏦 Transferencia</option>
-                <option value="cheque">📝 Cheque</option>
+                <option value="credito">Crédito 15 días</option>
+                <option value="efectivo">Efectivo al contado</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="cheque">Cheque</option>
               </Sel>
               <Inp label="Observación" value={form.observacion} onChange={e => setForm({ ...form, observacion: e.target.value })} placeholder="Opcional" />
               <Inp label="Fecha de entrega" type="date" value={form.fecha_entrega} onChange={e => setForm({ ...form, fecha_entrega: e.target.value })} />
@@ -213,7 +213,7 @@ function Pedidos({ tok }) {
             </div>
             {form.medio_pago === 'credito' && form.fecha && (
               <div style={{ background: '#fefce8', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#a16207' }}>
-                📅 Vencimiento del crédito: <strong>{fd(vencimiento(form.fecha))}</strong>
+                Vencimiento del crédito: <strong>{fd(vencimiento(form.fecha))}</strong>
               </div>
             )}
             <div>
@@ -244,14 +244,14 @@ function Pedidos({ tok }) {
                         ))}
                         {!prods.find(p => p.nombre.toLowerCase() === it.nombre_libre.toLowerCase()) && (
                           <div style={{ padding: '10px 14px', fontSize: 13, color: '#16a34a', fontWeight: 600, background: '#f0fdf4', borderTop: '1px solid #d1fae5' }}>
-                            ✚ Crear "{it.nombre_libre}" como producto nuevo
+                            Crear "{it.nombre_libre}" como producto nuevo
                           </div>
                         )}
                       </div>
                     )}
                     {it.nombre_libre && !it._mostrarSug && (
                       <div style={{ fontSize: 11, marginTop: 3, color: it.producto_id ? '#16a34a' : '#f59e0b', fontWeight: 600 }}>
-                        {it.producto_id ? '✓ Producto del catálogo' : '✚ Se creará como producto nuevo al guardar'}
+                        {it.producto_id ? 'Producto del catálogo' : 'Se creará como producto nuevo al guardar'}
                       </div>
                     )}
                   </div>
@@ -273,7 +273,7 @@ function Pedidos({ tok }) {
             <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <input
                 value={busca} onChange={e => setBusca(e.target.value)}
-                placeholder="🔍 Buscar por nombre de cliente..."
+                placeholder="Buscar por nombre de cliente..."
                 style={{ ...inp, marginBottom: 4 }}
               />
               {pedidos.filter(p => !busca || p.clientes_externos?.nombre?.toLowerCase().includes(busca.toLowerCase())).map(p => (
@@ -517,9 +517,9 @@ function DetallePedido({ pedido, tok, onVolver }) {
         <p style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Cliente</p>
         <p style="font-size:16px;font-weight:800;color:#111827;margin-bottom:6px;">${cliente.nombre || '—'}</p>
         ${cliente.ruc ? `<p style="font-size:13px;color:#6b7280;margin-bottom:3px;">RUC: ${cliente.ruc}</p>` : ''}
-        ${cliente.telefono ? `<p style="font-size:13px;color:#6b7280;margin-bottom:3px;">📞 ${cliente.telefono}</p>` : ''}
-        ${cliente.email ? `<p style="font-size:13px;color:#6b7280;margin-bottom:3px;">✉️ ${cliente.email}</p>` : ''}
-        ${cliente.direccion ? `<p style="font-size:13px;color:#6b7280;">📍 ${cliente.direccion}</p>` : ''}
+        ${cliente.telefono ? `<p style="font-size:13px;color:#6b7280;margin-bottom:3px;">${cliente.telefono}</p>` : ''}
+        ${cliente.email ? `<p style="font-size:13px;color:#6b7280;margin-bottom:3px;">${cliente.email}</p>` : ''}
+        ${cliente.direccion ? `<p style="font-size:13px;color:#6b7280;">${cliente.direccion}</p>` : ''}
       </div>
       <div style="background:#f9fafb;border-radius:12px;padding:18px;">
         <p style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Resumen de pago</p>
@@ -563,7 +563,7 @@ function DetallePedido({ pedido, tok, onVolver }) {
     </div>
 
     <div class="no-print" style="text-align:center;margin-top:32px;">
-      <button onclick="window.print()" style="padding:12px 32px;background:#16a34a;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-right:10px;">🖨️ Imprimir / Guardar PDF</button>
+      <button onclick="window.print()" style="padding:12px 32px;background:#16a34a;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-right:10px;">Imprimir️ Imprimir / Guardar PDF</button>
       <button onclick="window.close()" style="padding:12px 20px;background:#f3f4f6;color:#374151;border:none;border-radius:10px;font-size:15px;cursor:pointer;">Cerrar</button>
     </div>
     </body></html>`;
@@ -592,13 +592,13 @@ function DetallePedido({ pedido, tok, onVolver }) {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => setEditando(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '10px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-            ✏️ Editar
+            Editar
           </button>
           <button onClick={eliminarPedido} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fef2f2', color: '#dc2626', border: '1.5px solid #fecaca', borderRadius: 10, padding: '10px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-            🗑 Eliminar
+            Eliminar
           </button>
           <button onClick={imprimirPDF} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-            📄 Descargar PDF
+            Descargar PDF
           </button>
         </div>
       </div>
@@ -608,7 +608,7 @@ function DetallePedido({ pedido, tok, onVolver }) {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
             <div style={{ padding: '18px 22px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <p style={{ fontWeight: 800, fontSize: 16, color: '#111827', margin: 0 }}>✏️ Editar pedido #{nroPedido}</p>
+              <p style={{ fontWeight: 800, fontSize: 16, color: '#111827', margin: 0 }}>Editar pedido #{nroPedido}</p>
               <button onClick={() => setEditando(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af' }}>×</button>
             </div>
             <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -621,10 +621,10 @@ function DetallePedido({ pedido, tok, onVolver }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Medio de pago</label>
                   <select value={formEdit.medio_pago} onChange={e => setFormEdit({ ...formEdit, medio_pago: e.target.value })} style={inp}>
-                    <option value="credito">🗓 Crédito 15 días</option>
-                    <option value="efectivo">💵 Efectivo al contado</option>
-                    <option value="transferencia">🏦 Transferencia</option>
-                    <option value="cheque">📝 Cheque</option>
+                    <option value="credito">Crédito 15 días</option>
+                    <option value="efectivo">Efectivo al contado</option>
+                    <option value="transferencia">Transferencia</option>
+                    <option value="cheque">Cheque</option>
                   </select>
                 </div>
               </div>
@@ -673,7 +673,7 @@ function DetallePedido({ pedido, tok, onVolver }) {
                           </div>
                         )}
                       </div>
-                      <button onClick={() => setItemsEdit(itemsEdit.filter((_, idx) => idx !== i))} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '4px 8px', fontSize: 12, cursor: 'pointer', marginLeft: 8, flexShrink: 0 }}>🗑</button>
+                      <button onClick={() => setItemsEdit(itemsEdit.filter((_, idx) => idx !== i))} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '4px 8px', fontSize: 12, cursor: 'pointer', marginLeft: 8, flexShrink: 0 }}></button>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -697,7 +697,7 @@ function DetallePedido({ pedido, tok, onVolver }) {
               {/* Botones */}
               <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
                 <button onClick={guardarEdicion} disabled={saving} style={{ flex: 1, background: saving ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '12px', fontSize: 15, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-                  {saving ? 'Guardando...' : '✓ Guardar cambios'}
+                  {saving ? 'Guardando...' : 'Guardar cambios'}
                 </button>
                 <button onClick={() => setEditando(false)} style={{ background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '12px 20px', fontSize: 14, cursor: 'pointer' }}>
                   Cancelar
@@ -732,9 +732,9 @@ function DetallePedido({ pedido, tok, onVolver }) {
             <p style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>Cliente</p>
             <p style={{ fontWeight: 800, fontSize: 15, color: '#111827', margin: '0 0 5px' }}>{cliente.nombre || '—'}</p>
             {cliente.ruc && <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 3px' }}>RUC: {cliente.ruc}</p>}
-            {cliente.telefono && <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 3px' }}>📞 {cliente.telefono}</p>}
-            {cliente.email && <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 3px' }}>✉️ {cliente.email}</p>}
-            {cliente.direccion && <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>📍 {cliente.direccion}</p>}
+            {cliente.telefono && <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 3px' }}>{cliente.telefono}</p>}
+            {cliente.email && <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 3px' }}>{cliente.email}</p>}
+            {cliente.direccion && <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>{cliente.direccion}</p>}
           </div>
           <div style={{ padding: '18px 24px' }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>Detalle de pago</p>
@@ -807,7 +807,7 @@ function DetallePedido({ pedido, tok, onVolver }) {
           onClick={() => { setFormPag(f => ({ ...f, monto: String(saldo) })); setShowPagModal(true); }}
           style={{ width: '100%', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontSize: 16, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
         >
-          ✓ Registrar pago — {gs(saldo)} pendiente
+          Registrar pago — {gs(saldo)} pendiente
         </button>
       )}
 
@@ -820,7 +820,7 @@ function DetallePedido({ pedido, tok, onVolver }) {
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f3f4f6' }}>
                 <div>
                   <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: '0 0 2px' }}>
-                    {p.medio_pago === 'transferencia' ? '🏦 Transferencia' : p.medio_pago === 'efectivo' ? '💵 Efectivo' : '📝 ' + p.medio_pago}
+                    {p.medio_pago === 'transferencia' ? 'Transferencia' : p.medio_pago === 'efectivo' ? 'Efectivo' : '📝 ' + p.medio_pago}
                   </p>
                   <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>
                     {fd(p.fecha)}{p.banco ? ` · ${p.banco}` : ''}{p.comprobante ? ` · Comp. ${p.comprobante}` : ''}
@@ -838,14 +838,14 @@ function DetallePedido({ pedido, tok, onVolver }) {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 480, boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
             <div style={{ padding: '18px 22px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <p style={{ fontWeight: 800, fontSize: 16, color: '#111827', margin: 0 }}>✓ Registrar pago</p>
+              <p style={{ fontWeight: 800, fontSize: 16, color: '#111827', margin: 0 }}>Registrar pago</p>
               <button onClick={() => setShowPagModal(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#9ca3af' }}>×</button>
             </div>
             <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
               {/* Selector método */}
               <div style={{ display: 'flex', gap: 10 }}>
-                {[['efectivo', '💵 Efectivo'], ['transferencia', '🏦 Transferencia']].map(([val, lbl]) => (
+                {[['efectivo', 'Efectivo'], ['transferencia', 'Transferencia']].map(([val, lbl]) => (
                   <button key={val} onClick={() => setFormPag(f => ({ ...f, metodo: val }))}
                     style={{ flex: 1, padding: '12px', borderRadius: 10, border: `2px solid ${formPag.metodo === val ? '#16a34a' : '#e5e7eb'}`, background: formPag.metodo === val ? '#f0fdf4' : '#fff', color: formPag.metodo === val ? '#15803d' : '#374151', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
                     {lbl}
@@ -909,7 +909,7 @@ function DetallePedido({ pedido, tok, onVolver }) {
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={confirmarPago} disabled={saving || !formPag.monto}
                   style={{ flex: 1, background: saving ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '13px', fontSize: 15, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-                  {saving ? 'Guardando...' : '✓ Confirmar pago'}
+                  {saving ? 'Guardando...' : 'Confirmar pago'}
                 </button>
                 <button onClick={() => setShowPagModal(false)}
                   style={{ background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '13px 18px', fontSize: 14, cursor: 'pointer' }}>
@@ -1069,10 +1069,10 @@ function Clientes({ tok, onVerPedido }) {
       {/* Dashboard resumen */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, padding: '16px 18px', borderBottom: '1px solid #f3f4f6' }}>
         {[
-          { label: 'Clientes registrados', valor: rows.length, color: '#1d4ed8', bg: '#eff6ff', icono: '👥' },
-          { label: 'Ventas del mes', valor: gs(stats.ventasMes), color: '#15803d', bg: '#f0fdf4', icono: '💰' },
-          { label: 'Pedidos del mes', valor: stats.pedidosMes, color: '#6d28d9', bg: '#f5f3ff', icono: '📦' },
-          { label: 'Saldo pendiente', valor: gs(stats.pendiente), color: '#dc2626', bg: '#fef2f2', icono: '⏳' },
+          { label: 'Clientes registrados', valor: rows.length, color: '#1d4ed8', bg: '#eff6ff', icono: '' },
+          { label: 'Ventas del mes', valor: gs(stats.ventasMes), color: '#15803d', bg: '#f0fdf4', icono: '' },
+          { label: 'Pedidos del mes', valor: stats.pedidosMes, color: '#6d28d9', bg: '#f5f3ff', icono: '' },
+          { label: 'Saldo pendiente', valor: gs(stats.pendiente), color: '#dc2626', bg: '#fef2f2', icono: '' },
         ].map(s => (
           <div key={s.label} style={{ background: s.bg, borderRadius: 12, padding: '12px 14px' }}>
             <p style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.icono} {s.label}</p>
@@ -1122,15 +1122,15 @@ function Clientes({ tok, onVerPedido }) {
                       >{c.nombre} {expandido === c.id ? '▲' : '▼'}</p>
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 12, color: '#6b7280', textAlign: 'left' }}>
                         {c.ruc && <span>RUC: {c.ruc}</span>}
-                        {c.telefono && <span>📞 {c.telefono}</span>}
-                        {c.email && <span>✉️ {c.email}</span>}
-                        {c.direccion && <span>📍 {c.direccion}</span>}
+                        {c.telefono && <span>{c.telefono}</span>}
+                        {c.email && <span>{c.email}</span>}
+                        {c.direccion && <span>{c.direccion}</span>}
                         {c.limite_credito > 0 && <span style={{ color: '#1d4ed8', fontWeight: 600 }}>Crédito: {gs(c.limite_credito)}</span>}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                      <button onClick={() => abrirEdicion(c)} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✏️ Editar</button>
-                      <button onClick={() => eliminar(c)} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Eliminar</button>
+                      <button onClick={() => abrirEdicion(c)} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Editar</button>
+                      <button onClick={() => eliminar(c)} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Eliminar</button>
                     </div>
                   </div>
                   {expandido === c.id && (
@@ -1252,7 +1252,7 @@ function CuentasPendientes({ tok }) {
         <div style={{ background: '#fff7ed', borderRadius: 14, padding: 16 }}><p style={{ fontSize: 12, color: '#c2410c', margin: '0 0 4px', fontWeight: 600 }}>VENCIDAS</p><p style={{ fontSize: 26, fontWeight: 700, color: '#c2410c', margin: 0 }}>{vencidos.length}</p></div>
       </div>
       {loading ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Cargando...</p> :
-        rows.length === 0 ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>No hay cuentas pendientes 🎉</p> :
+        rows.length === 0 ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>No hay cuentas pendientes </p> :
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {rows.map(r => {
               const vencido = r.fecha_vencimiento && new Date(r.fecha_vencimiento) < hoy;
@@ -1261,7 +1261,7 @@ function CuentasPendientes({ tok }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 2px' }}>{r.clientes_externos?.nombre}</p>
-                      <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 6px' }}>{r.clientes_externos?.telefono && `📞 ${r.clientes_externos.telefono}`}</p>
+                      <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 6px' }}>{r.clientes_externos?.telefono && `${r.clientes_externos.telefono}`}</p>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
                         <span style={{ color: '#6b7280' }}>Pedido: {fd(r.fecha)}</span>
                         <span style={{ color: vencido ? '#dc2626' : '#a16207', fontWeight: 600 }}>Vence: {fd(r.fecha_vencimiento)}</span>

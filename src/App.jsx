@@ -357,7 +357,7 @@ function Dashboard({ tok }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div><h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: '0 0 4px' }}>Bienvenido 👋</h2><p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>Resumen general del sistema Purafruta</p></div>
+      <div><h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: '0 0 4px' }}>Bienvenido </h2><p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>Resumen general del sistema Purafruta</p></div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 14 }}>
         {stat('Total ventas', gs(data.totalVentas), `${data.ventas} transacciones`, '#f0fdf4', '#15803d')}
         {stat('Total compras', gs(data.totalCompras), `${data.compras} órdenes`, '#eff6ff', '#1d4ed8')}
@@ -386,7 +386,7 @@ function ComprasModule({ tok }) {
   const [tab, setTab] = useState('lista');
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Tabs tabs={[['lista','Lista de compras'],['nueva','Nueva compra'],['credito','💳 Créditos'],['proveedores','Proveedores'],['productos','Catálogo']]} active={tab} onChange={setTab} />
+      <Tabs tabs={[['lista','Lista de compras'],['nueva','Nueva compra'],['credito','Créditos'],['proveedores','Proveedores'],['productos','Catálogo']]} active={tab} onChange={setTab} />
       {tab === 'lista' && <ListaCompras tok={tok} setTab={setTab} />}
       {tab === 'nueva' && <NuevaCompra tok={tok} onDone={() => setTab('lista')} />}
       {tab === 'credito' && <CreditosCompras tok={tok} />}
@@ -433,7 +433,7 @@ function ListaCompras({ tok, setTab }) {
   };
 
   const ec = { pendiente: 'yellow', recibida: 'blue', verificada: 'green' };
-  const mp = { contado: { label: '💵 Contado', bg: '#f0fdf4', color: '#15803d' }, credito: { label: '🗓 Crédito', bg: '#fefce8', color: '#a16207' } };
+  const mp = { contado: { label: 'Contado', bg: '#f0fdf4', color: '#15803d' }, credito: { label: 'Crédito', bg: '#fefce8', color: '#a16207' } };
 
   // Filtrar por vista (general/personal) y por rango de fechas
   const filtradas = rows.filter(r => {
@@ -463,12 +463,12 @@ function ListaCompras({ tok, setTab }) {
       {/* Resumen del mes */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
         <div style={{ background: 'linear-gradient(135deg,#16a34a,#22c55e)', borderRadius: 14, padding: '16px 18px' }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', margin: '0 0 4px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5 }}>📦 Almacén · {nombreMes}</p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', margin: '0 0 4px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5 }}>Almacén · {nombreMes}</p>
           <p style={{ fontSize: 24, fontWeight: 800, color: '#fff', margin: '0 0 2px' }}>{gs(totalMesGeneral)}</p>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', margin: 0 }}>{cantMesGeneral} compra{cantMesGeneral !== 1 ? 's' : ''} este mes</p>
         </div>
         <div style={{ background: 'linear-gradient(135deg,#a16207,#d97706)', borderRadius: 14, padding: '16px 18px' }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', margin: '0 0 4px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5 }}>🏠 Personales · {nombreMes}</p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', margin: '0 0 4px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5 }}>Personales · {nombreMes}</p>
           <p style={{ fontSize: 24, fontWeight: 800, color: '#fff', margin: '0 0 2px' }}>{gs(totalMesPersonal)}</p>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', margin: 0 }}>{cantMesPersonal} compra{cantMesPersonal !== 1 ? 's' : ''} este mes</p>
         </div>
@@ -477,16 +477,16 @@ function ListaCompras({ tok, setTab }) {
       {/* Selector de vista */}
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={() => setVista('general')} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', cursor: 'pointer', background: vista === 'general' ? '#16a34a' : '#f3f4f6', color: vista === 'general' ? '#fff' : '#374151', fontWeight: 700, fontSize: 13 }}>
-          📦 Compras de almacén ({totalGeneral})
+          Compras de almacén ({totalGeneral})
         </button>
         <button onClick={() => setVista('personal')} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', cursor: 'pointer', background: vista === 'personal' ? '#a16207' : '#f3f4f6', color: vista === 'personal' ? '#fff' : '#374151', fontWeight: 700, fontSize: 13 }}>
-          🏠 Compras personales ({totalPersonal})
+          Compras personales ({totalPersonal})
         </button>
       </div>
 
       {vista === 'personal' && (
         <div style={{ background: '#fefce8', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#a16207', fontWeight: 600 }}>
-          ℹ️ Estas compras (Ña María / Sintia) no afectan el inventario de almacén.
+          Estas compras (Ña María / Sintia) no afectan el inventario de almacén.
         </div>
       )}
 
@@ -500,7 +500,7 @@ function ListaCompras({ tok, setTab }) {
               <span style={{ fontSize: 12, color: '#9ca3af' }}>a</span>
               <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#111827', background: '#fff', colorScheme: 'light' }} />
               {(fechaDesde || fechaHasta) && (
-                <button onClick={() => { setFechaDesde(''); setFechaHasta(''); }} style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#6b7280', cursor: 'pointer' }}>✕ Limpiar</button>
+                <button onClick={() => { setFechaDesde(''); setFechaHasta(''); }} style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#6b7280', cursor: 'pointer' }}>× Limpiar</button>
               )}
             </div>
           }
@@ -520,8 +520,8 @@ function ListaCompras({ tok, setTab }) {
                         <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{r.proveedores?.nombre || '—'}</span>
                         <span style={{ fontSize: 14, fontWeight: 700, color: '#15803d' }}>{gs(r.total)}</span>
                         {mp[metodo] && <span style={{ background: mp[metodo].bg, color: mp[metodo].color, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{mp[metodo].label}</span>}
-                        {vencido && <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>⚠️ VENCIDO</span>}
-                        {metodo === 'credito' && r.estado_pago === 'pagado' && <span style={{ background: '#f0fdf4', color: '#15803d', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>✓ Pagado</span>}
+                        {vencido && <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>VENCIDO</span>}
+                        {metodo === 'credito' && r.estado_pago === 'pagado' && <span style={{ background: '#f0fdf4', color: '#15803d', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>Pagado</span>}
                         {metodo === 'credito' && r.estado_pago === 'parcial' && <span style={{ background: '#fff7ed', color: '#c2410c', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>Pago parcial</span>}
                       </div>
                       <div style={{ display: 'flex', gap: 12, fontSize: 12, color: '#9ca3af', flexWrap: 'wrap' }}>
@@ -532,8 +532,8 @@ function ListaCompras({ tok, setTab }) {
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                      <button onClick={e => { e.stopPropagation(); setEditando(r); }} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✏️</button>
-                      <button onClick={e => { e.stopPropagation(); setConfirmDel(r); }} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>🗑</button>
+                      <button onClick={e => { e.stopPropagation(); setEditando(r); }} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}></button>
+                      <button onClick={e => { e.stopPropagation(); setConfirmDel(r); }} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}></button>
                     </div>
                   </div>
 
@@ -583,13 +583,13 @@ function ListaCompras({ tok, setTab }) {
       {confirmDel && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 400, padding: 28, boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
-            <p style={{ fontWeight: 800, fontSize: 17, color: '#111827', margin: '0 0 8px' }}>⚠️ Eliminar compra</p>
+            <p style={{ fontWeight: 800, fontSize: 17, color: '#111827', margin: '0 0 8px' }}>Eliminar compra</p>
             <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 20px' }}>
               ¿Eliminar la compra de <strong>{confirmDel.proveedores?.nombre || 'este proveedor'}</strong> por <strong>{gs(confirmDel.total)}</strong>?
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => eliminar(confirmDel)} disabled={deleting} style={{ flex: 1, background: deleting ? '#fecaca' : '#dc2626', color: '#fff', border: 'none', borderRadius: 10, padding: '12px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
-                {deleting ? 'Eliminando...' : '🗑 Sí, eliminar'}
+                {deleting ? 'Eliminando...' : 'Sí, eliminar'}
               </button>
               <button onClick={() => setConfirmDel(null)} style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 10, padding: '12px 20px', fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
             </div>
@@ -713,7 +713,7 @@ function ModalEditarCompra({ tok, compra, onClose }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 680, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
         <div style={{ padding: '18px 22px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: '#fff', zIndex: 10 }}>
-          <p style={{ fontWeight: 800, fontSize: 16, color: '#111827', margin: 0 }}>✏️ Editar compra</p>
+          <p style={{ fontWeight: 800, fontSize: 16, color: '#111827', margin: 0 }}> Editar compra</p>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#9ca3af' }}>×</button>
         </div>
         <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -736,16 +736,16 @@ function ModalEditarCompra({ tok, compra, onClose }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Método de pago</label>
               <select value={form.metodo_pago} onChange={e => setForm({ ...form, metodo_pago: e.target.value })} style={inp}>
-                <option value="contado">💵 Contado</option>
-                <option value="credito">🗓 Crédito</option>
+                <option value="contado">Contado</option>
+                <option value="credito">Crédito</option>
               </select>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Tipo de compra</label>
             <select value={form.tipo_compra} onChange={e => setForm({ ...form, tipo_compra: e.target.value })} style={inp}>
-              <option value="general">📦 General (impacta inventario)</option>
-              <option value="personal">🏠 Personal (no afecta inventario)</option>
+              <option value="general">General (impacta inventario)</option>
+              <option value="personal">Personal (no afecta inventario)</option>
             </select>
           </div>
           {form.metodo_pago === 'credito' && (
@@ -757,9 +757,9 @@ function ModalEditarCompra({ tok, compra, onClose }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 <label style={{ fontSize: 12, fontWeight: 700, color: '#a16207' }}>Estado del crédito</label>
                 <select value={form.estado_pago} onChange={e => setForm({ ...form, estado_pago: e.target.value })} style={inp}>
-                  <option value="pendiente">⏳ Pendiente</option>
-                  <option value="parcial">🔶 Pago parcial</option>
-                  <option value="pagado">✅ Pagado</option>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="parcial">Pago parcial</option>
+                  <option value="pagado">Pagado</option>
                 </select>
               </div>
             </div>
@@ -797,7 +797,7 @@ function ModalEditarCompra({ tok, compra, onClose }) {
                       <option value="almacen">→ Almacén</option>
                       <option value="produccion">→ Producción</option>
                     </select>
-                    <button onClick={() => removeItem(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16 }}>✕</button>
+                    <button onClick={() => removeItem(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16 }}>×</button>
                   </div>
                 ))}
                 {items.length > 0 && (
@@ -811,7 +811,7 @@ function ModalEditarCompra({ tok, compra, onClose }) {
 
           <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
             <button onClick={guardar} disabled={saving} style={{ flex: 1, background: saving ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '13px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
-              {saving ? 'Guardando...' : '✓ Guardar cambios'}
+              {saving ? 'Guardando...' : 'Guardar cambios'}
             </button>
             <button onClick={onClose} style={{ background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '13px 18px', cursor: 'pointer' }}>Cancelar</button>
           </div>
@@ -843,9 +843,9 @@ function CreditosCompras({ tok }) {
   const filtradas = filtro === 'vencidas' ? vencidas : filtro === 'pendientes' ? pendientes : filtro === 'parciales' ? parciales : filtro === 'pagadas' ? pagadas : rows;
 
   const estadoStyle = {
-    pendiente: { bg: '#fefce8', color: '#a16207', label: '⏳ Pendiente' },
-    parcial: { bg: '#fff7ed', color: '#c2410c', label: '🔶 Parcial' },
-    pagado: { bg: '#f0fdf4', color: '#15803d', label: '✅ Pagado' },
+    pendiente: { bg: '#fefce8', color: '#a16207', label: 'Pendiente' },
+    parcial: { bg: '#fff7ed', color: '#c2410c', label: 'Parcial' },
+    pagado: { bg: '#f0fdf4', color: '#15803d', label: 'Pagado' },
   };
 
   return (
@@ -868,7 +868,7 @@ function CreditosCompras({ tok }) {
 
       {/* Filtros */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {[['todos','Todos'], ['vencidas','⚠️ Vencidas'], ['pendientes','⏳ Pendientes'], ['parciales','🔶 Parciales'], ['pagadas','✅ Pagadas']].map(([k, l]) => (
+        {[['todos','Todos'], ['vencidas','Vencidas'], ['pendientes','Pendientes'], ['parciales','Parciales'], ['pagadas','Pagadas']].map(([k, l]) => (
           <button key={k} onClick={() => setFiltro(k)} style={{ padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', background: filtro === k ? '#16a34a' : '#f3f4f6', color: filtro === k ? '#fff' : '#374151' }}>{l}</button>
         ))}
       </div>
@@ -886,7 +886,7 @@ function CreditosCompras({ tok }) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>{r.proveedores?.nombre || '—'}</span>
                     <span style={{ background: est.bg, color: est.color, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{est.label}</span>
-                    {vencido && <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>⚠️ VENCIDO</span>}
+                    {vencido && <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>VENCIDO</span>}
                   </div>
                   <div style={{ display: 'flex', gap: 14, fontSize: 12, color: '#9ca3af', flexWrap: 'wrap' }}>
                     <span>Fecha compra: {fd(r.fecha)}</span>
@@ -1007,15 +1007,15 @@ function NuevaCompra({ tok, onDone }) {
           <div style={{ marginTop: 14 }}>
             <Grid cols={2}>
               <Select label="Tipo de compra *" value={form.tipo_compra} onChange={e => setForm({ ...form, tipo_compra: e.target.value })}>
-                <option value="general">📦 General (impacta inventario)</option>
-                <option value="personal">🏠 Personal (Ña María / Sintia — no afecta inventario)</option>
+                <option value="general">General (impacta inventario)</option>
+                <option value="personal">Personal (Ña María / Sintia — no afecta inventario)</option>
               </Select>
               <Input label="Observación" value={form.observacion} onChange={e => setForm({ ...form, observacion: e.target.value })} placeholder="Opcional" />
             </Grid>
           </div>
           {form.tipo_compra === 'personal' && (
             <div style={{ marginTop: 12, background: '#fefce8', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#a16207', fontWeight: 600 }}>
-              ⚠️ Esta compra se registrará por separado y NO sumará al inventario de almacén.
+              Esta compra se registrará por separado y NO sumará al inventario de almacén.
             </div>
           )}
         </div>
@@ -1035,7 +1035,7 @@ function NuevaCompra({ tok, onDone }) {
                     ))}
                   </div>
                 )}
-                {it.nombre_libre && <p style={{ fontSize: 10, margin: '2px 0 0', color: it.producto_id ? '#16a34a' : '#f59e0b', fontWeight: 600 }}>{it.producto_id ? '✓ Producto existente' : '✚ Se creará como nuevo'}</p>}
+                {it.nombre_libre && <p style={{ fontSize: 10, margin: '2px 0 0', color: it.producto_id ? '#16a34a' : '#f59e0b', fontWeight: 600 }}>{it.producto_id ? '✓ Producto existente' : 'Se creará como nuevo'}</p>}
               </div>
               <input type="number" placeholder="Cantidad" value={it.cantidad} onChange={e => upd(i, 'cantidad', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }} />
               <select value={it.unidad} onChange={e => upd(i, 'unidad', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }}>{['kg','g','litro','ml','unidad','caja','bolsa','paquete','rollo'].map(u => <option key={u}>{u}</option>)}</select>
@@ -1057,7 +1057,7 @@ function NuevaCompra({ tok, onDone }) {
       {confirmDup && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 420, padding: 28, boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
-            <p style={{ fontWeight: 800, fontSize: 17, color: '#111827', margin: '0 0 8px' }}>⚠️ Posible compra duplicada</p>
+            <p style={{ fontWeight: 800, fontSize: 17, color: '#111827', margin: '0 0 8px' }}> Posible compra duplicada</p>
             <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 10px' }}>
               Ya existe una compra registrada con el mismo proveedor, fecha y monto:
             </p>
@@ -1128,7 +1128,7 @@ function Proveedores({ tok }) {
                 <option value="sucursal">Sucursal (directo al local)</option>
               </Select>
             </Grid>
-            {err && <p style={{ color: '#dc2626', fontSize: 13, margin: 0, background: '#fef2f2', padding: '8px 12px', borderRadius: 8 }}>⚠️ {err}</p>}
+            {err && <p style={{ color: '#dc2626', fontSize: 13, margin: 0, background: '#fef2f2', padding: '8px 12px', borderRadius: 8 }}>{err}</p>}
             <div style={{ display: 'flex', gap: 8 }}>
               <Btn onClick={guardar} disabled={saving || !form.nombre}>{saving ? 'Guardando...' : 'Guardar'}</Btn>
               <Btn variant="secondary" onClick={() => { setShow(false); setErr(''); }}>Cancelar</Btn>
@@ -1349,7 +1349,7 @@ function InvAlmacen({ tok }) {
                         <input type="number" value={ajusteVal} onChange={e => setAjusteVal(e.target.value)}
                           style={{ border: '1.5px solid #16a34a', borderRadius: 6, padding: '3px 7px', fontSize: 13, width: 70, color: '#111827' }} autoFocus />
                         <button onClick={() => guardarAjuste(r.id)} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '3px 9px', fontSize: 12, cursor: 'pointer' }}>✓</button>
-                        <button onClick={() => { setAjusteId(null); setAjusteVal(''); }} style={{ background: '#f3f4f6', color: '#6b7280', border: 'none', borderRadius: 6, padding: '3px 7px', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                        <button onClick={() => { setAjusteId(null); setAjusteVal(''); }} style={{ background: '#f3f4f6', color: '#6b7280', border: 'none', borderRadius: 6, padding: '3px 7px', fontSize: 12, cursor: 'pointer' }}>×</button>
                       </div>
                     ) : r.stock_actual}
                   </td>
@@ -1543,13 +1543,13 @@ function Salidas({ tok }) {
                     </select>
                   </div>
                   {items.length > 1 && (
-                    <button onClick={() => removeItem(i)} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 8, padding: '9px 12px', fontSize: 14, cursor: 'pointer', flexShrink: 0 }}>✕</button>
+                    <button onClick={() => removeItem(i)} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 8, padding: '9px 12px', fontSize: 14, cursor: 'pointer', flexShrink: 0 }}>×</button>
                   )}
                 </div>
               ))}
             </div>
 
-            {err && <p style={{ color: '#dc2626', fontSize: 13, margin: 0 }}>⚠️ {err}</p>}
+            {err && <p style={{ color: '#dc2626', fontSize: 13, margin: 0 }}>{err}</p>}
 
             <div style={{ display: 'flex', gap: 8 }}>
               <Btn onClick={guardar} disabled={saving}>
@@ -1569,7 +1569,7 @@ function Salidas({ tok }) {
                 {confirmDel.items.length} producto{confirmDel.items.length > 1 ? 's' : ''} · {fd(confirmDel.fecha)} · {confirmDel.responsable}
               </p>
               <p style={{ fontSize: 13, color: '#16a34a', margin: '0 0 20px', background: '#f0fdf4', padding: '8px 12px', borderRadius: 8 }}>
-                ✓ El stock de todos los productos se reintegrará automáticamente.
+                El stock de todos los productos se reintegrará automáticamente.
               </p>
               <div style={{ display: 'flex', gap: 10 }}>
                 <Btn variant="danger" onClick={() => eliminarGrupo(confirmDel)}>Sí, eliminar</Btn>
@@ -1690,7 +1690,7 @@ function Lotes({ tok }) {
                     ))}
                   </div>
                 )}
-                {it.nombre_libre && <p style={{ fontSize: 10, margin: '2px 0 0', color: it.producto_id ? '#16a34a' : '#f59e0b', fontWeight: 600 }}>{it.producto_id ? '✓ Producto existente' : '✚ Se creará como nuevo'}</p>}
+                {it.nombre_libre && <p style={{ fontSize: 10, margin: '2px 0 0', color: it.producto_id ? '#16a34a' : '#f59e0b', fontWeight: 600 }}>{it.producto_id ? '✓ Producto existente' : 'Se creará como nuevo'}</p>}
               </div>
                 <input type="number" placeholder="Cantidad" value={it.cantidad_producida} onChange={e => upd(i, 'cantidad_producida', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }} />
                 <input type="number" placeholder="Peso paq. (kg)" value={it.peso_paquete} onChange={e => upd(i, 'peso_paquete', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }} />
@@ -1768,7 +1768,7 @@ function PDVModule({ tok }) {
         <div style={{ borderTop: '1px solid #f3f4f6', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 17, color: '#111827' }}><span>Total</span><span>{gs(total)}</span></div>
           <Select value={medioPago} onChange={e => setMedioPago(e.target.value)}><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="mixto">Mixto</option></Select>
-          <button onClick={cobrar} disabled={saving || carrito.length === 0 || !sucursal} style={{ background: saving || carrito.length === 0 || !sucursal ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 12, padding: 14, fontSize: 16, fontWeight: 600, cursor: saving || carrito.length === 0 || !sucursal ? 'not-allowed' : 'pointer' }}>{saving ? 'Procesando...' : '💳 Cobrar'}</button>
+          <button onClick={cobrar} disabled={saving || carrito.length === 0 || !sucursal} style={{ background: saving || carrito.length === 0 || !sucursal ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 12, padding: 14, fontSize: 16, fontWeight: 600, cursor: saving || carrito.length === 0 || !sucursal ? 'not-allowed' : 'pointer' }}>{saving ? 'Procesando...' : ' Cobrar'}</button>
         </div>
       </Card>
     </div>
@@ -1812,7 +1812,7 @@ function PedidosModule({ tok, perfil }) {
                     ))}
                   </div>
                 )}
-                {it.nombre_libre && <p style={{ fontSize: 10, margin: '2px 0 0', color: it.producto_id ? '#16a34a' : '#f59e0b', fontWeight: 600 }}>{it.producto_id ? '✓ Producto existente' : '✚ Se creará como nuevo'}</p>}
+                {it.nombre_libre && <p style={{ fontSize: 10, margin: '2px 0 0', color: it.producto_id ? '#16a34a' : '#f59e0b', fontWeight: 600 }}>{it.producto_id ? '✓ Producto existente' : 'Se creará como nuevo'}</p>}
               </div>
                   <input type="number" placeholder="Cantidad" value={it.cantidad_solicitada} onChange={e => upd(i, 'cantidad_solicitada', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }} />
                   <select value={it.unidad} onChange={e => upd(i, 'unidad', e.target.value)} style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', background: '#fff' }}>{['kg','g','litro','ml','unidad','caja','bolsa','paquete'].map(u => <option key={u}>{u}</option>)}</select>
@@ -1916,7 +1916,7 @@ function ReportesModule({ tok }) {
           <div style={{ background: stats.res >= 0 ? 'linear-gradient(135deg,#16a34a,#22c55e)' : 'linear-gradient(135deg,#dc2626,#ef4444)', borderRadius: 16, padding: 24, color: '#fff' }}>
             <p style={{ fontSize: 14, opacity: .85, margin: '0 0 6px' }}>Resultado del período — Ventas − Compras</p>
             <p style={{ fontSize: 36, fontWeight: 700, margin: '0 0 4px' }}>{gs(stats.res)}</p>
-            <p style={{ fontSize: 13, opacity: .7, margin: 0 }}>{stats.res >= 0 ? '✓ Período positivo' : '✗ Período negativo'}</p>
+            <p style={{ fontSize: 13, opacity: .7, margin: 0 }}>{stats.res >= 0 ? 'Período positivo' : 'Período negativo'}</p>
           </div>
           {Object.keys(stats.porSuc).length > 0 && (
             <Card>
