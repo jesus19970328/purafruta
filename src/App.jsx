@@ -367,9 +367,11 @@ function Dashboard({ tok }) {
       <Card>
         <CardHead title="Módulos del sistema" />
         <div style={{ padding: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12 }}>
-          {[['🛒', 'Compras', 'Registro de compras a proveedores'], ['📦', 'Almacén', 'Inventario, remisiones y salidas'], ['🏭', 'Producción', 'Hojitas digitales y costeo'], ['🏪', 'PDV', 'Ventas en las 4 sucursales'], ['🚚', 'Pedidos', 'Pedidos de sucursales a fábrica'], ['💰', 'Finanzas', 'Caja general y transferencias']].map(([e, t, d]) => (
-            <div key={t} style={{ display: 'flex', gap: 12, padding: 12, borderRadius: 10, background: '#fafafa' }}>
-              <span style={{ fontSize: 22 }}>{e}</span>
+          {[[ShoppingCart, 'Compras', 'Registro de compras a proveedores', '#3b82f6', '#eff6ff'], [Package, 'Almacén', 'Inventario, remisiones y salidas', '#f59e0b', '#fffbeb'], [Factory, 'Producción', 'Hojitas digitales y costeo', '#8b5cf6', '#f5f3ff'], [Store, 'PDV', 'Ventas en las 4 sucursales', '#ec4899', '#fdf2f8'], [Truck, 'Pedidos', 'Pedidos de sucursales a fábrica', '#ef4444', '#fef2f2'], [DollarSign, 'Finanzas', 'Caja general y transferencias', '#16a34a', '#f0fdf4']].map(([Icon, t, d, color, bg]) => (
+            <div key={t} style={{ display: 'flex', gap: 12, padding: 12, borderRadius: 10, background: '#fafafa', alignItems: 'center' }}>
+              <span style={{ width: 40, height: 40, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon size={18} color={color} />
+              </span>
               <div><p style={{ fontWeight: 600, fontSize: 14, color: '#111827', margin: '0 0 2px' }}>{t}</p><p style={{ fontSize: 12, color: '#6b7280', margin: 0 }}>{d}</p></div>
             </div>
           ))}
