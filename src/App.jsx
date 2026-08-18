@@ -117,11 +117,12 @@ export default function App() {
   const onLogout = async () => { if (session) await db.logout(session.access_token); doLogout(); };
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0fdf4', color: '#111827' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0fdf4', color: '#111827', fontFamily: "'Poppins', sans-serif" }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ width: 48, height: 48, border: '4px solid #16a34a', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
         <p style={{ color: '#6b7280', fontSize: 14 }}>Cargando Purafruta...</p>
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}} * { font-family: 'Poppins', sans-serif; }`}</style>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" />
       </div>
     </div>
   );
@@ -134,6 +135,16 @@ function LoginScreen({ onLogin }) {
   const [pwd, setPwd] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!document.getElementById('poppins-font')) {
+      const link = document.createElement('link');
+      link.id = 'poppins-font';
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap';
+      document.head.appendChild(link);
+    }
+    document.body.style.fontFamily = "'Poppins', sans-serif";
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault(); setLoading(true); setErr('');
@@ -188,6 +199,18 @@ function MainApp({ session, perfil, onLogout }) {
   const [open, setOpen] = useState(false);
   useEffect(() => { setMod(getDefaultMod(perfil?.rol || 'admin')); }, [perfil?.rol]);
 
+  // Inyectar Poppins globalmente
+  useEffect(() => {
+    if (!document.getElementById('poppins-font')) {
+      const link = document.createElement('link');
+      link.id = 'poppins-font';
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap';
+      document.head.appendChild(link);
+    }
+    document.body.style.fontFamily = "'Poppins', sans-serif";
+  }, []);
+
   const panels = {
     dashboard: <Dashboard tok={tok} />,
     compras: <ComprasModule tok={tok} />,
@@ -201,35 +224,61 @@ function MainApp({ session, perfil, onLogout }) {
     clientes: <ClientesModule tok={tok} />,
   };
 
-  const s = { sidebar: { width: 240, background: '#fff', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', flexShrink: 0 }, navBtn: (active) => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, border: 'none', background: active ? '#f0fdf4' : 'transparent', color: active ? '#15803d' : '#6b7280', fontWeight: active ? 600 : 400, fontSize: 14, cursor: 'pointer', width: '100%', textAlign: 'left', transition: 'all .15s' }) };
+  const navBtn = (active) => ({
+    display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px',
+    borderRadius: 10, border: 'none', cursor: 'pointer', width: '100%',
+    textAlign: 'left', transition: 'all .15s', fontFamily: "'Poppins', sans-serif",
+    fontSize: 13, fontWeight: active ? 600 : 400,
+    background: active ? '#f0fdf4' : 'transparent',
+    color: active ? '#15803d' : '#4b5563',
+  });
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#f9fafb', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100vh', background: '#f3f4f6', overflow: 'hidden', fontFamily: "'Poppins', sans-serif" }}>
       {open && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.3)', zIndex: 30 }} />}
-      <div style={{ ...s.sidebar, position: window.innerWidth < 1024 ? 'fixed' : 'static', height: '100%', zIndex: 40, transform: open || window.innerWidth >= 1024 ? 'none' : 'translateX(-100%)', transition: 'transform .2s' }}>
-        <div style={{ padding: '16px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+
+      {/* Sidebar */}
+      <div style={{ width: 240, background: '#fff', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', flexShrink: 0, position: window.innerWidth < 1024 ? 'fixed' : 'static', height: '100%', zIndex: 40, transform: open || window.innerWidth >= 1024 ? 'none' : 'translateX(-100%)', transition: 'transform .2s' }}>
+        {/* Logo */}
+        <div style={{ padding: '18px 16px 14px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img src="/logo.png" style={{ width: 40, height: 40, borderRadius: 12, objectFit: "cover" }} />
-            <div><p style={{ fontWeight: 700, fontSize: 15, color: '#111827', margin: 0 }}>Purafruta</p><p style={{ fontSize: 12, color: '#9ca3af', margin: 0, textTransform: 'capitalize' }}>{perfil?.nombre}</p></div>
+            <img src="/logo.png" style={{ width: 38, height: 38, borderRadius: 10, objectFit: 'cover' }} />
+            <div>
+              <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: 0, letterSpacing: '-0.3px' }}>Purafruta</p>
+              <p style={{ fontSize: 11, color: '#9ca3af', margin: 0, textTransform: 'capitalize', fontWeight: 400 }}>{perfil?.nombre}</p>
+            </div>
           </div>
-          <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: window.innerWidth >= 1024 ? 'none' : 'block' }}><X size={18} /></button>
+          <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: window.innerWidth >= 1024 ? 'none' : 'block' }}><X size={16} /></button>
         </div>
-        <nav style={{ flex: 1, padding: 10, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+
+        {/* Nav items */}
+        <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
           {nav.map(n => (
-            <button key={n.id} onClick={() => { setMod(n.id); setOpen(false); }} style={s.navBtn(mod === n.id)}>
-              <n.icon size={17} />{n.label}
+            <button key={n.id} onClick={() => { setMod(n.id); setOpen(false); }} style={navBtn(mod === n.id)}>
+              <span style={{ width: 32, height: 32, borderRadius: 8, background: mod === n.id ? '#dcfce7' : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <n.icon size={16} color={mod === n.id ? '#15803d' : '#6b7280'} />
+              </span>
+              {n.label}
             </button>
           ))}
         </nav>
-        <div style={{ padding: 10, borderTop: '1px solid #f3f4f6' }}>
-          <button onClick={onLogout} style={{ ...s.navBtn(false), color: '#ef4444' }}><LogOut size={17} />Cerrar sesión</button>
+
+        {/* Logout */}
+        <div style={{ padding: '8px', borderTop: '1px solid #f3f4f6' }}>
+          <button onClick={onLogout} style={{ ...navBtn(false), color: '#ef4444' }}>
+            <span style={{ width: 32, height: 32, borderRadius: 8, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <LogOut size={16} color="#ef4444" />
+            </span>
+            Cerrar sesión
+          </button>
         </div>
       </div>
 
+      {/* Main content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         <header style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
           <button onClick={() => setOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', display: window.innerWidth >= 1024 ? 'none' : 'block' }}><Menu size={20} /></button>
-          <h1 style={{ fontWeight: 600, fontSize: 16, color: '#111827', margin: 0 }}>{nav.find(n => n.id === mod)?.label}</h1>
+          <h1 style={{ fontWeight: 600, fontSize: 15, color: '#111827', margin: 0, fontFamily: "'Poppins', sans-serif", letterSpacing: '-0.2px' }}>{nav.find(n => n.id === mod)?.label}</h1>
         </header>
         <main style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
           {panels[mod]}
