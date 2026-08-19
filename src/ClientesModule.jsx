@@ -54,7 +54,9 @@ function Pedidos({ tok }) {
 
   const load = () => {
     const hoy = new Date();
-    const inicioSemana = new Date(hoy); inicioSemana.setDate(hoy.getDate() - 6); inicioSemana.setHours(0,0,0,0);
+    const inicioSemana = new Date(hoy);
+    inicioSemana.setDate(hoy.getDate() - hoy.getDay()); // retrocede al domingo
+    inicioSemana.setHours(0, 0, 0, 0);
     const inicioMes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
     const inicioSemanaStr = inicioSemana.toISOString().split('T')[0];
     return Promise.all([
@@ -278,7 +280,7 @@ function Pedidos({ tok }) {
                 style={{ ...inp, marginBottom: 4 }}
               />
               {pedidos.filter(p => !busca || p.clientes_externos?.nombre?.toLowerCase().includes(busca.toLowerCase())).map(p => (
-                <div key={p.id} style={{ background: '#f9fafb', borderRadius: 12, padding: 14 }}>
+                <div key={p.id} style={{ background: '#fff', borderRadius: 12, padding: 14, border: `1.5px solid ${p.estado === 'pendiente' ? '#fde68a' : p.estado === 'vencido' ? '#fecaca' : '#e5e7eb'}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 4px' }}>{p.clientes_externos?.nombre}</p>
