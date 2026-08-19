@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ShoppingCart, Package, Factory, Store, Truck, DollarSign, BarChart3, LogOut, Menu, X, Plus, Trash2, Check, AlertCircle, Search, Home, ChevronDown } from "lucide-react";
+import { ShoppingCart, Package, Factory, Store, Truck, DollarSign, BarChart3, LogOut, Menu, X, Plus, Trash2, Check, AlertCircle, Search, Home, ChevronDown, CreditCard, Banknote, Calendar, Archive, User, Users, TrendingUp, Clock, MapPin, Phone, Mail, Pencil, FileText, Clipboard, Thermometer, Leaf, Layers, Award, Tag, AlertTriangle, Info, CheckCircle, XCircle, ChevronRight, ChevronDown as ChevronDownIcon, Printer, Download, Eye, Building2, Wallet } from "lucide-react";
 import PDVModuleNew from "./PDVModule";
 import ProduccionModuleNew from "./ProduccionModule";
 import ActivosModule from "./ActivosModule";
@@ -290,7 +290,7 @@ function MainApp({ session, perfil, onLogout }) {
 
 // ── SHARED COMPONENTS ──────────────────────────────────────
 const Card = ({ children, style }) => <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb', ...style }}>{children}</div>;
-const CardHead = ({ title, action }) => <div style={{ padding: '14px 18px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><h3 style={{ fontWeight: 600, fontSize: 15, color: '#111827', margin: 0 }}>{title}</h3>{action}</div>;
+const CardHead = ({ title, sub, action, titleIcon: TitleIcon }) => <div style={{ padding: '14px 18px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><div><div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>{TitleIcon && <span style={{ width: 28, height: 28, borderRadius: 7, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><TitleIcon size={14} color="#374151" /></span>}<h3 style={{ fontWeight: 600, fontSize: 15, color: '#111827', margin: 0 }}>{title}</h3></div>{sub && <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>{sub}</p>}</div>{action}</div>;
 const Btn = ({ onClick, children, variant = 'primary', disabled, style: sx }) => {
   const styles = { primary: { background: disabled ? '#86efac' : '#16a34a', color: '#fff' }, secondary: { background: '#fff', color: '#374151', border: '1px solid #e5e7eb' }, ghost: { background: '#f0fdf4', color: '#15803d' }, danger: { background: '#fef2f2', color: '#dc2626' } };
   return <button onClick={onClick} disabled={disabled} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: disabled ? 'not-allowed' : 'pointer', border: 'none', transition: 'all .15s', ...styles[variant], ...sx }}>{children}</button>;
@@ -357,7 +357,7 @@ function Dashboard({ tok }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div><h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: '0 0 4px' }}>Bienvenido </h2><p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>Resumen general del sistema Purafruta</p></div>
+      <div><h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: '0 0 4px', display:'flex', alignItems:'center', gap:8 }}><Award size={22} />Bienvenido</h2><p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>Resumen general del sistema Purafruta</p></div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 14 }}>
         {stat('Total ventas', gs(data.totalVentas), `${data.ventas} transacciones`, '#f0fdf4', '#15803d')}
         {stat('Total compras', gs(data.totalCompras), `${data.compras} órdenes`, '#eff6ff', '#1d4ed8')}
@@ -520,7 +520,7 @@ function ListaCompras({ tok, setTab }) {
                         <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{r.proveedores?.nombre || '—'}</span>
                         <span style={{ fontSize: 14, fontWeight: 700, color: '#15803d' }}>{gs(r.total)}</span>
                         {mp[metodo] && <span style={{ background: mp[metodo].bg, color: mp[metodo].color, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{mp[metodo].label}</span>}
-                        {vencido && <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>VENCIDO</span>}
+                        {vencido && <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}><AlertTriangle size={11} style={{display:"inline",marginRight:3}} />VENCIDO</span>}
                         {metodo === 'credito' && r.estado_pago === 'pagado' && <span style={{ background: '#f0fdf4', color: '#15803d', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>Pagado</span>}
                         {metodo === 'credito' && r.estado_pago === 'parcial' && <span style={{ background: '#fff7ed', color: '#c2410c', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>Pago parcial</span>}
                       </div>
@@ -532,8 +532,8 @@ function ListaCompras({ tok, setTab }) {
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                      <button onClick={e => { e.stopPropagation(); setEditando(r); }} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}></button>
-                      <button onClick={e => { e.stopPropagation(); setConfirmDel(r); }} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}></button>
+                      <button onClick={e => { e.stopPropagation(); setEditando(r); }} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 7, padding: '6px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer', display:'flex',alignItems:'center',gap:4 }}><Pencil size={13} /></button>
+                      <button onClick={e => { e.stopPropagation(); setConfirmDel(r); }} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '6px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer', display:'flex',alignItems:'center',gap:4 }}><Trash2 size={13} /></button>
                     </div>
                   </div>
 
@@ -583,7 +583,7 @@ function ListaCompras({ tok, setTab }) {
       {confirmDel && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 400, padding: 28, boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
-            <p style={{ fontWeight: 800, fontSize: 17, color: '#111827', margin: '0 0 8px' }}>Eliminar compra</p>
+            <p style={{ fontWeight: 800, fontSize: 17, color: '#111827', margin: '0 0 8px' }}><AlertTriangle size={15} style={{marginRight:6}} />Eliminar compra</p>
             <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 20px' }}>
               ¿Eliminar la compra de <strong>{confirmDel.proveedores?.nombre || 'este proveedor'}</strong> por <strong>{gs(confirmDel.total)}</strong>?
             </p>
@@ -886,7 +886,7 @@ function CreditosCompras({ tok }) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>{r.proveedores?.nombre || '—'}</span>
                     <span style={{ background: est.bg, color: est.color, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{est.label}</span>
-                    {vencido && <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>VENCIDO</span>}
+                    {vencido && <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}><AlertTriangle size={11} style={{display:"inline",marginRight:3}} />VENCIDO</span>}
                   </div>
                   <div style={{ display: 'flex', gap: 14, fontSize: 12, color: '#9ca3af', flexWrap: 'wrap' }}>
                     <span>Fecha compra: {fd(r.fecha)}</span>

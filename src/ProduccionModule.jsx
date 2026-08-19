@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from "react";
+import { Leaf, Thermometer, Layers, Package, ClipboardList, DollarSign, PenLine, Trash2, Check, X, AlertTriangle, Warehouse, Store, CheckCircle } from "lucide-react";
 
 const SB_URL = 'https://iepqhmxgdyuthcsmxadb.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllcHFobXhnZHl1dGhjc214YWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzODM1MjcsImV4cCI6MjA5NDk1OTUyN30.WWUs3xNpaMAYcvp2TAVuqQdCHGCsKIV0fdDF3Y45sLE';
@@ -508,7 +509,7 @@ function NuevaHojita({ tok, onGuardado }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 40 }}>
       <Card>
-        <CardHead title="Planilla de Producción" sub="Purafruta — completá todos los campos" />
+        <CardHead title="Planilla de Producción" titleIcon={ClipboardList} sub="Purafruta — completá todos los campos" />
         <div style={sec}>
           <Row2>
             <Inp label="N° de hojita" value={general.numero_hojita} onChange={e => setGeneral({ ...general, numero_hojita: e.target.value })} placeholder="Ej: 5542" />
@@ -527,7 +528,7 @@ function NuevaHojita({ tok, onGuardado }) {
       </Card>
 
       <Card>
-        <CardHead title="Materia Prima" sub="Buscá en frescos o escribí el nombre · Pesos en gramos" />
+        <CardHead title="Materia Prima" titleIcon={Leaf} sub="Buscá en frescos o escribí el nombre · Pesos en gramos" />
         <div style={sec}>
           {materia.map((m, i) => (
             <div key={i} style={{ background: '#f9fafb', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -581,7 +582,7 @@ function NuevaHojita({ tok, onGuardado }) {
       </Card>
 
       <Card>
-        <CardHead title="Cantidad Producida" />
+        <CardHead title="Cantidad Producida" titleIcon={Package} />
         <div style={sec}>
           <Inp label="Paquetes producidos *" type="number" value={paquetes} onChange={e => setPaquetes(e.target.value)} placeholder="Ej: 57" style={{ fontSize: 32, fontWeight: 700, textAlign: 'center', color: '#15803d', padding: '16px' }} />
         </div>
@@ -614,7 +615,7 @@ function NuevaHojita({ tok, onGuardado }) {
       </Card>
 
       <Card>
-        <CardHead title="Materiales Indirectos" sub="Cantidades usadas en esta producción" />
+        <CardHead title="Materiales Indirectos" titleIcon={Layers} sub="Cantidades usadas en esta producción" />
         <div style={sec}>
           {[{ key: 'bolsa_vacio', label: 'Bolsa al vacío', costoKey: 'costo_bolsa_vacio' }, { key: 'bolsa_basura', label: '🗑 Bolsa de basura', costoKey: 'costo_bolsa_basura' }, { key: 'guantes', label: 'Guantes (pares)', costoKey: 'costo_guante' }, { key: 'vasos', label: '🥤 Vasos', costoKey: 'costo_vaso' }].map(({ key, label, costoKey }) => (
             <div key={key} style={{ background: '#f9fafb', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -631,7 +632,7 @@ function NuevaHojita({ tok, onGuardado }) {
       </Card>
 
       <Card>
-        <CardHead title="Otras Tareas" sub="Tareas adicionales de la jornada" />
+        <CardHead title="Otras Tareas" titleIcon={ClipboardList} sub="Tareas adicionales de la jornada" />
         <div style={sec}>
           {tareas.map((t, i) => (
             <div key={i} style={{ background: '#f9fafb', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -647,7 +648,7 @@ function NuevaHojita({ tok, onGuardado }) {
       </Card>
 
       <Card style={{ border: '2px solid #16a34a' }}>
-        <CardHead title="Resumen de Costos" sub="Calculado automáticamente · 13.000 Gs/hora · Margen 55%" />
+        <CardHead title="Resumen de Costos" titleIcon={DollarSign} sub="Calculado automáticamente · 13.000 Gs/hora · Margen 55%" />
         <div style={sec}>
           {costoMP === 0 && materia.some(m => m.producto_id) && !tienePreciosMP && (
             <div style={{ background: '#fefce8', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#a16207', fontWeight: 600 }}>
@@ -671,7 +672,7 @@ function NuevaHojita({ tok, onGuardado }) {
       </Card>
 
       <Card>
-        <CardHead title="Firmas y Responsables" />
+        <CardHead title="Firmas y Responsables" titleIcon={PenLine} />
         <div style={sec}>
           <Inp label="Nombres de operadores" value={firmas.nombres_operadores} onChange={e => setFirmas({ ...firmas, nombres_operadores: e.target.value })} placeholder="Ej: Caroliliz, Graciela, Andresa" />
           <Row2>
@@ -747,7 +748,7 @@ function DetalleHojita({ lote, onVolver }) {
         </div>
       </div>
       <Card style={{ border: '2px solid #16a34a' }}>
-        <CardHead title="Resumen de costos" />
+        <CardHead title="Resumen de costos" titleIcon={DollarSign} />
         <div style={sec}>
           {[
             ['Paquetes', `${det?.cantidad_producida || 0} paq.`, '#f9fafb', '#374151'],
@@ -766,7 +767,7 @@ function DetalleHojita({ lote, onVolver }) {
         </div>
       </Card>
       <Card>
-        <CardHead title="Materia prima" />
+        <CardHead title="Materia prima" titleIcon={Leaf} />
         <div style={sec}>
           {materia.filter(m => m.nombre).map((m, i) => (
             <div key={i} style={{ background: '#f9fafb', borderRadius: 10, padding: 12 }}>
@@ -792,7 +793,7 @@ function DetalleHojita({ lote, onVolver }) {
         </div>
       </Card>
       <Card>
-        <CardHead title="Firmas" />
+        <CardHead title="Firmas" titleIcon={PenLine} />
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {[['Operadores', firmas.nombres_operadores], ['Jefe de Prod.', firmas.jefe_prod], ['Almacén', firmas.firma_almacen]].map(([l, v]) => (
             <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f3f4f6', fontSize: 14 }}>

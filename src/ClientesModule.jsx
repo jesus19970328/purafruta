@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Package, Users, Wallet, TrendingUp, Calendar, Clock, CreditCard, Banknote, Building2, FileText, Phone, Mail, MapPin, Pencil, Trash2, Search, CheckCircle, Plus, Download, Printer, ChevronDown, ChevronUp, AlertTriangle, X, Check } from "lucide-react";
 
 const SB_URL = 'https://iepqhmxgdyuthcsmxadb.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllcHFobXhnZHl1dGhjc214YWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzODM1MjcsImV4cCI6MjA5NDk1OTUyN30.WWUs3xNpaMAYcvp2TAVuqQdCHGCsKIV0fdDF3Y45sLE';
@@ -181,14 +182,14 @@ function Pedidos({ tok }) {
         {/* Dashboard */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, padding: '0 14px 10px' }}>
           {[
-            { label: 'Ventas esta semana', valor: gs(stats.semana), color: '#15803d', bg: '#f0fdf4', icono: '' },
-            { label: 'Ventas este mes', valor: gs(stats.mes), color: '#1d4ed8', bg: '#eff6ff', icono: '' },
-            { label: 'Pedidos esta semana', valor: stats.pedidosSemana, color: '#6d28d9', bg: '#f5f3ff', icono: '' },
-            { label: 'Pedidos este mes', valor: stats.pedidosMes, color: '#0369a1', bg: '#f0f9ff', icono: '' },
-            { label: 'Clientes nuevos (7d)', valor: stats.clientesNuevosSemana, color: '#b45309', bg: '#fffbeb', icono: '' },
+            { label: 'Ventas esta semana', valor: gs(stats.semana), color: '#15803d', bg: '#f0fdf4', Icono: TrendingUp },
+            { label: 'Ventas este mes', valor: gs(stats.mes), color: '#1d4ed8', bg: '#eff6ff', Icono: Wallet },
+            { label: 'Pedidos esta semana', valor: stats.pedidosSemana, color: '#6d28d9', bg: '#f5f3ff', Icono: Package },
+            { label: 'Pedidos este mes', valor: stats.pedidosMes, color: '#0369a1', bg: '#f0f9ff', Icono: Calendar },
+            { label: 'Clientes nuevos (7d)', valor: stats.clientesNuevosSemana, color: '#b45309', bg: '#fffbeb', Icono: Users },
           ].map(s => (
             <div key={s.label} style={{ background: s.bg, borderRadius: 10, padding: '10px 12px' }}>
-              <p style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.4 }}>{s.icono} {s.label}</p>
+              <p style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.4, display:'flex', alignItems:'center', gap:4 }}>{s.Icono && <s.Icono size={12} />}{s.label}</p>
               <p style={{ fontSize: 16, fontWeight: 800, color: s.color, margin: 0 }}>{s.valor}</p>
             </div>
           ))}
@@ -1072,7 +1073,7 @@ function Clientes({ tok, onVerPedido }) {
           { label: 'Clientes registrados', valor: rows.length, color: '#1d4ed8', bg: '#eff6ff', icono: '' },
           { label: 'Ventas del mes', valor: gs(stats.ventasMes), color: '#15803d', bg: '#f0fdf4', icono: '' },
           { label: 'Pedidos del mes', valor: stats.pedidosMes, color: '#6d28d9', bg: '#f5f3ff', icono: '' },
-          { label: 'Saldo pendiente', valor: gs(stats.pendiente), color: '#dc2626', bg: '#fef2f2', icono: '' },
+          { label: 'Saldo pendiente', valor: gs(stats.pendiente), color: '#dc2626', bg: '#fef2f2', Icono: AlertTriangle },
         ].map(s => (
           <div key={s.label} style={{ background: s.bg, borderRadius: 12, padding: '12px 14px' }}>
             <p style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.icono} {s.label}</p>
@@ -1122,15 +1123,15 @@ function Clientes({ tok, onVerPedido }) {
                       >{c.nombre} {expandido === c.id ? '▲' : '▼'}</p>
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 12, color: '#6b7280', textAlign: 'left' }}>
                         {c.ruc && <span>RUC: {c.ruc}</span>}
-                        {c.telefono && <span>{c.telefono}</span>}
-                        {c.email && <span>{c.email}</span>}
-                        {c.direccion && <span>{c.direccion}</span>}
+                        {c.telefono && <span style={{display:'flex',alignItems:'center',gap:3}}><Phone size={11} />{c.telefono}</span>}
+                        {c.email && <span style={{display:'flex',alignItems:'center',gap:3}}><Mail size={11} />{c.email}</span>}
+                        {c.direccion && <span style={{display:'flex',alignItems:'center',gap:3}}><MapPin size={11} />{c.direccion}</span>}
                         {c.limite_credito > 0 && <span style={{ color: '#1d4ed8', fontWeight: 600 }}>Crédito: {gs(c.limite_credito)}</span>}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                      <button onClick={() => abrirEdicion(c)} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Editar</button>
-                      <button onClick={() => eliminar(c)} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Eliminar</button>
+                      <button onClick={() => abrirEdicion(c)} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}><Pencil size={12} /> Editar</button>
+                      <button onClick={() => eliminar(c)} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}><Trash2 size={12} /> Eliminar</button>
                     </div>
                   </div>
                   {expandido === c.id && (
