@@ -22,6 +22,92 @@ const Inp = ({ label, ...p }) => <div style={{ display: 'flex', flexDirection: '
 const Sel = ({ label, children, ...p }) => <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>{label && <label style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{label}</label>}<select {...p} style={{ ...inp, ...(p.style || {}) }}>{children}</select></div>;
 const Tabs = ({ tabs, active, onChange }) => <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{tabs.map(([id, label]) => <button key={id} onClick={() => onChange(id)} style={{ padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 500, border: 'none', cursor: 'pointer', flex: '1 1 auto', background: active === id ? '#16a34a' : '#fff', color: active === id ? '#fff' : '#6b7280', boxShadow: active === id ? 'none' : '0 0 0 1.5px #e5e7eb' }}>{label}</button>)}</div>;
 
+// ── RANKING DE PRODUCTOS ─────────────────────────────────
+function RankingProductos({ tok }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filtro, setFiltro] = useState('total'); // total | mes | semana
+
+  useEffect(() => {
+    const hoy = new Date();
+    const inicioMes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
+    const inicioSemana = new Date(hoy);
+    inicioSemana.setDate(hoy.getDate() - hoy.getDay());
+    const inicioSemanaStr = inicioSemana.toISOString().split('T')[0];
+
+    Promise.all([
+      db.get('pedidos_externos_detalle', 'select=cantidad,producto_id,pedido_id', tok),
+      db.get('productos', 'activo=eq.true&select=id,nombre', tok),
+      db.get('pedidos_externos', `select=id,fecha`, tok),
+    ]).then(([detalles, prods, pedidos]) => {
+      const d = Array.isArray(detalles) ? detalles : [];
+      const p = Array.isArray(prods) ? prods : [];
+      const ped = Array.isArray(pedidos) ? pedidos : [];
+
+      const pedidoFecha = {};
+      ped.forEach(pe => { pedidoFecha[pe.id] = pe.fecha; });
+
+      const productoNombre = {};
+      p.forEach(pr => { productoNombre[pr.id] = pr.nombre; });
+
+      // Agrupar por producto_id según filtro
+      const totales = {};
+      d.forEach(item => {
+        const fecha = pedidoFecha[item.pedido_id];
+        if (filtro === 'mes' && (!fecha || fecha < inicioMes)) return;
+        if (filtro === 'semana' && (!fecha || fecha < inicioSemanaStr)) return;
+        const nombre = productoNombre[item.producto_id] || 'Desconocido';
+        totales[nombre] = (totales[nombre] || 0) + parseFloat(item.cantidad || 0);
+      });
+
+      const sorted = Object.entries(totales)
+        .map(([nombre, cant]) => ({ nombre, cant }))
+        .sort((a, b) => b.cant - a.cant);
+
+      setRows(sorted);
+      setLoading(false);
+    });
+  }, [filtro, tok]);
+
+  const max = rows.length > 0 ? rows[0].cant : 1;
+
+  const medalColor = (i) => i === 0 ? '#f59e0b' : i === 1 ? '#9ca3af' : i === 2 ? '#b45309' : '#e5e7eb';
+
+  return (
+    <Card>
+      <CardHead title="Ranking de productos vendidos" sub="Paquetes por sabor, ordenados de mayor a menor" />
+      <div style={{ padding: '12px 16px 6px', display: 'flex', gap: 8 }}>
+        {[['total', 'Todo el tiempo'], ['mes', 'Este mes'], ['semana', 'Esta semana']].map(([v, l]) => (
+          <button key={v} onClick={() => { setLoading(true); setFiltro(v); }} style={{ padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: filtro === v ? '#16a34a' : '#f3f4f6', color: filtro === v ? '#fff' : '#6b7280' }}>{l}</button>
+        ))}
+      </div>
+      {loading ? <p style={{ padding: 30, color: '#9ca3af', textAlign: 'center' }}>Cargando...</p> :
+        rows.length === 0 ? <p style={{ padding: 30, color: '#9ca3af', textAlign: 'center' }}>Sin datos para este período</p> :
+        <div style={{ padding: '8px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {rows.map((r, i) => (
+            <div key={r.nombre} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {/* Posición */}
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: medalColor(i), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: i < 3 ? '#fff' : '#6b7280' }}>{i + 1}</span>
+              </div>
+              {/* Nombre y barra */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.nombre}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#15803d', flexShrink: 0, marginLeft: 8 }}>{r.cant} paq.</span>
+                </div>
+                <div style={{ height: 6, background: '#f3f4f6', borderRadius: 99, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${(r.cant / max) * 100}%`, background: i === 0 ? '#16a34a' : i < 3 ? '#86efac' : '#d1fae5', borderRadius: 99, transition: 'width .4s' }} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      }
+    </Card>
+  );
+}
+
 export default function ClientesModule({ tok }) {
   const [tab, setTab] = useState('pedidos');
   const [pedidoDetalle, setPedidoDetalle] = useState(null);
@@ -30,10 +116,11 @@ export default function ClientesModule({ tok }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <Tabs tabs={[['pedidos', 'Pedidos'], ['clientes', 'Clientes'], ['cuentas', 'Cuentas pendientes']]} active={tab} onChange={setTab} />
+      <Tabs tabs={[['pedidos', 'Pedidos'], ['clientes', 'Clientes'], ['cuentas', 'Cuentas pendientes'], ['ranking', 'Ranking']]} active={tab} onChange={setTab} />
       {tab === 'pedidos' && <Pedidos tok={tok} />}
       {tab === 'clientes' && <Clientes tok={tok} onVerPedido={p => { setPedidoDetalle(p); }} />}
       {tab === 'cuentas' && <CuentasPendientes tok={tok} />}
+      {tab === 'ranking' && <RankingProductos tok={tok} />}
     </div>
   );
 }
