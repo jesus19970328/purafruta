@@ -62,33 +62,100 @@ function RankingProductos({ tok }) {
     return Object.entries(totales).map(([nombre, cant]) => ({ nombre, cant })).sort((a, b) => b.cant - a.cant);
   };
 
-  const exportarExcel = () => {
+  const exportarExcel = async () => {
     setExportando(true);
-    const data = todos.map(it => ({
-      'Cliente': it.pedidos_externos?.clientes_externos?.nombre || '—',
-      'RUC': it.pedidos_externos?.clientes_externos?.ruc || '—',
-      'Teléfono': it.pedidos_externos?.clientes_externos?.telefono || '—',
-      'Fecha pedido': it.pedidos_externos?.fecha || '—',
-      'Producto': it.productos?.nombre || '—',
-      'Cantidad': parseFloat(it.cantidad || 0),
-      'Precio unitario (Gs.)': parseFloat(it.precio_unitario || 0),
-      'Subtotal (Gs.)': parseFloat(it.subtotal || 0),
-      'Total pedido (Gs.)': parseFloat(it.pedidos_externos?.total || 0),
-      'Estado': it.pedidos_externos?.estado || '—',
-      'Medio de pago': it.pedidos_externos?.medio_pago || '—',
-    }));
+    try {
+      // Cargar SheetJS dinámicamente
+      const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs');
 
-    // Construir CSV con BOM para Excel
-    const cols = Object.keys(data[0] || {});
-    const bom = '\uFEFF';
-    const header = cols.join(';');
-    const body = data.map(row => cols.map(c => `"${String(row[c]).replace(/"/g, '""')}"`).join(';')).join('\n');
-    const csv = bom + header + '\n' + body;
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `purafruta_ventas_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click(); URL.revokeObjectURL(url);
+      const data = todos.map(it => ({
+        'Cliente': it.pedidos_externos?.clientes_externos?.nombre || '—',
+        'RUC': it.pedidos_externos?.clientes_externos?.ruc || '—',
+        'Teléfono': it.pedidos_externos?.clientes_externos?.telefono || '—',
+        'Fecha pedido': it.pedidos_externos?.fecha || '—',
+        'Producto': it.productos?.nombre || '—',
+        'Cantidad': parseFloat(it.cantidad || 0),
+        'Precio unitario (Gs.)': parseFloat(it.precio_unitario || 0),
+        'Subtotal (Gs.)': parseFloat(it.subtotal || 0),
+        'Total pedido (Gs.)': parseFloat(it.pedidos_externos?.total || 0),
+        'Estado': it.pedidos_externos?.estado || '—',
+        'Medio de pago': it.pedidos_externos?.medio_pago || '—',
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(data);
+
+      // Anchos de columna
+      ws['!cols'] = [
+        { wch: 28 }, { wch: 14 }, { wch: 16 }, { wch: 14 },
+        { wch: 42 }, { wch: 10 }, { wch: 20 }, { wch: 16 },
+        { wch: 18 }, { wch: 12 }, { wch: 15 },
+      ];
+
+      // Estilo encabezados
+      const cols = Object.keys(data[0] || {});
+      cols.forEach((_, ci) => {
+        const cellRef = XLSX.utils.encode_cell({ r: 0, c: ci });
+        if (!ws[cellRef]) return;
+        ws[cellRef].s = {
+          font: { bold: true, color: { rgb: 'FFFFFF' }, name: 'Poppins', sz: 11 },
+          fill: { fgColor: { rgb: '16A34A' } },
+          alignment: { horizontal: 'center', vertical: 'center', wrapText: false },
+          border: {
+            top: { style: 'thin', color: { rgb: '0F7A2E' } },
+            bottom: { style: 'thin', color: { rgb: '0F7A2E' } },
+            left: { style: 'thin', color: { rgb: '0F7A2E' } },
+            right: { style: 'thin', color: { rgb: '0F7A2E' } },
+          },
+        };
+      });
+
+      // Estilo filas de datos (zebra)
+      for (let r = 1; r <= data.length; r++) {
+        cols.forEach((_, ci) => {
+          const cellRef = XLSX.utils.encode_cell({ r, c: ci });
+          if (!ws[cellRef]) return;
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: r % 2 === 0 ? 'F0FDF4' : 'FFFFFF' } },
+            font: { name: 'Calibri', sz: 10 },
+            alignment: { vertical: 'center' },
+            border: {
+              top: { style: 'hair', color: { rgb: 'E5E7EB' } },
+              bottom: { style: 'hair', color: { rgb: 'E5E7EB' } },
+              left: { style: 'hair', color: { rgb: 'E5E7EB' } },
+              right: { style: 'hair', color: { rgb: 'E5E7EB' } },
+            },
+          };
+        });
+      }
+
+      // Autofilter
+      ws['!autofilter'] = { ref: `A1:K${data.length + 1}` };
+
+      // Fila de totales al final
+      const totalRow = data.length + 2;
+      const totalData = {
+        'Cliente': 'TOTAL',
+        'RUC': '', 'Teléfono': '', 'Fecha pedido': '', 'Producto': '',
+        'Cantidad': data.reduce((s, r) => s + r['Cantidad'], 0),
+        'Precio unitario (Gs.)': '',
+        'Subtotal (Gs.)': data.reduce((s, r) => s + r['Subtotal (Gs.)'], 0),
+        'Total pedido (Gs.)': '',
+        'Estado': '', 'Medio de pago': '',
+      };
+      XLSX.utils.sheet_add_json(ws, [totalData], { origin: `A${totalRow}`, skipHeader: true });
+      cols.forEach((_, ci) => {
+        const cellRef = XLSX.utils.encode_cell({ r: totalRow - 1, c: ci });
+        if (!ws[cellRef]) return;
+        ws[cellRef].s = { font: { bold: true, name: 'Calibri', sz: 10 }, fill: { fgColor: { rgb: 'DCFCE7' } } };
+      });
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Ventas Clientes Externos');
+      XLSX.writeFile(wb, `purafruta_ventas_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (e) {
+      console.error('Error exportando:', e);
+      alert('Error al exportar. Intentá de nuevo.');
+    }
     setExportando(false);
   };
 
