@@ -25,72 +25,101 @@ const Tabs = ({ tabs, active, onChange }) => <div style={{ display: 'flex', gap:
 // ── RANKING DE PRODUCTOS ─────────────────────────────────
 function RankingProductos({ tok }) {
   const [rows, setRows] = useState([]);
+  const [todos, setTodos] = useState([]); // para Excel — todos los pedidos
   const [loading, setLoading] = useState(true);
-  const [filtro, setFiltro] = useState('total'); // total | mes | semana
+  const [filtro, setFiltro] = useState('total');
+  const [exportando, setExportando] = useState(false);
 
   useEffect(() => {
+    // Un solo join: pedidos_externos_detalle → productos + pedidos_externos
+    db.get('pedidos_externos_detalle', 'select=cantidad,subtotal,precio_unitario,pedido_id,productos(nombre),pedidos_externos(fecha,total,estado,medio_pago,clientes_externos(nombre,telefono,ruc))', tok)
+      .then(d => {
+        const data = Array.isArray(d) ? d : [];
+        setTodos(data);
+        setLoading(false);
+      });
+  }, [tok]);
+
+  const filtrar = (data) => {
     const hoy = new Date();
     const inicioMes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
-    const inicioSemana = new Date(hoy);
-    inicioSemana.setDate(hoy.getDate() - hoy.getDay());
+    const inicioSemana = new Date(hoy); inicioSemana.setDate(hoy.getDate() - hoy.getDay()); inicioSemana.setHours(0,0,0,0);
     const inicioSemanaStr = inicioSemana.toISOString().split('T')[0];
-
-    Promise.all([
-      db.get('pedidos_externos_detalle', 'select=cantidad,producto_id,pedido_id', tok),
-      db.get('productos', 'activo=eq.true&select=id,nombre', tok),
-      db.get('pedidos_externos', `select=id,fecha`, tok),
-    ]).then(([detalles, prods, pedidos]) => {
-      const d = Array.isArray(detalles) ? detalles : [];
-      const p = Array.isArray(prods) ? prods : [];
-      const ped = Array.isArray(pedidos) ? pedidos : [];
-
-      const pedidoFecha = {};
-      ped.forEach(pe => { pedidoFecha[pe.id] = pe.fecha; });
-
-      const productoNombre = {};
-      p.forEach(pr => { productoNombre[pr.id] = pr.nombre; });
-
-      // Agrupar por producto_id según filtro
-      const totales = {};
-      d.forEach(item => {
-        const fecha = pedidoFecha[item.pedido_id];
-        if (filtro === 'mes' && (!fecha || fecha < inicioMes)) return;
-        if (filtro === 'semana' && (!fecha || fecha < inicioSemanaStr)) return;
-        const nombre = productoNombre[item.producto_id] || 'Desconocido';
-        totales[nombre] = (totales[nombre] || 0) + parseFloat(item.cantidad || 0);
-      });
-
-      const sorted = Object.entries(totales)
-        .map(([nombre, cant]) => ({ nombre, cant }))
-        .sort((a, b) => b.cant - a.cant);
-
-      setRows(sorted);
-      setLoading(false);
+    return data.filter(it => {
+      const fecha = it.pedidos_externos?.fecha;
+      if (filtro === 'mes') return fecha && fecha >= inicioMes;
+      if (filtro === 'semana') return fecha && fecha >= inicioSemanaStr;
+      return true;
     });
-  }, [filtro, tok]);
+  };
 
-  const max = rows.length > 0 ? rows[0].cant : 1;
+  const calcRows = () => {
+    const totales = {};
+    filtrar(todos).forEach(it => {
+      const nombre = it.productos?.nombre || 'Desconocido';
+      totales[nombre] = (totales[nombre] || 0) + parseFloat(it.cantidad || 0);
+    });
+    return Object.entries(totales).map(([nombre, cant]) => ({ nombre, cant })).sort((a, b) => b.cant - a.cant);
+  };
 
+  const exportarExcel = () => {
+    setExportando(true);
+    const data = todos.map(it => ({
+      'Cliente': it.pedidos_externos?.clientes_externos?.nombre || '—',
+      'RUC': it.pedidos_externos?.clientes_externos?.ruc || '—',
+      'Teléfono': it.pedidos_externos?.clientes_externos?.telefono || '—',
+      'Fecha pedido': it.pedidos_externos?.fecha || '—',
+      'Producto': it.productos?.nombre || '—',
+      'Cantidad': parseFloat(it.cantidad || 0),
+      'Precio unitario (Gs.)': parseFloat(it.precio_unitario || 0),
+      'Subtotal (Gs.)': parseFloat(it.subtotal || 0),
+      'Total pedido (Gs.)': parseFloat(it.pedidos_externos?.total || 0),
+      'Estado': it.pedidos_externos?.estado || '—',
+      'Medio de pago': it.pedidos_externos?.medio_pago || '—',
+    }));
+
+    // Construir CSV con BOM para Excel
+    const cols = Object.keys(data[0] || {});
+    const bom = '\uFEFF';
+    const header = cols.join(';');
+    const body = data.map(row => cols.map(c => `"${String(row[c]).replace(/"/g, '""')}"`).join(';')).join('\n');
+    const csv = bom + header + '\n' + body;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `purafruta_ventas_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    setExportando(false);
+  };
+
+  const displayRows = calcRows();
+  const max = displayRows.length > 0 ? displayRows[0].cant : 1;
   const medalColor = (i) => i === 0 ? '#f59e0b' : i === 1 ? '#9ca3af' : i === 2 ? '#b45309' : '#e5e7eb';
 
   return (
     <Card>
-      <CardHead title="Ranking de productos vendidos" sub="Paquetes por sabor, ordenados de mayor a menor" />
+      <CardHead
+        title="Ranking de productos vendidos"
+        sub="Paquetes por sabor, ordenados de mayor a menor"
+        action={
+          <button onClick={exportarExcel} disabled={exportando || todos.length === 0} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            <Download size={13} /> {exportando ? 'Exportando...' : 'Exportar Excel'}
+          </button>
+        }
+      />
       <div style={{ padding: '12px 16px 6px', display: 'flex', gap: 8 }}>
         {[['total', 'Todo el tiempo'], ['mes', 'Este mes'], ['semana', 'Esta semana']].map(([v, l]) => (
-          <button key={v} onClick={() => { setLoading(true); setFiltro(v); }} style={{ padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: filtro === v ? '#16a34a' : '#f3f4f6', color: filtro === v ? '#fff' : '#6b7280' }}>{l}</button>
+          <button key={v} onClick={() => setFiltro(v)} style={{ padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: filtro === v ? '#16a34a' : '#f3f4f6', color: filtro === v ? '#fff' : '#6b7280' }}>{l}</button>
         ))}
       </div>
       {loading ? <p style={{ padding: 30, color: '#9ca3af', textAlign: 'center' }}>Cargando...</p> :
-        rows.length === 0 ? <p style={{ padding: 30, color: '#9ca3af', textAlign: 'center' }}>Sin datos para este período</p> :
+        displayRows.length === 0 ? <p style={{ padding: 30, color: '#9ca3af', textAlign: 'center' }}>Sin datos para este período</p> :
         <div style={{ padding: '8px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {rows.map((r, i) => (
+          {displayRows.map((r, i) => (
             <div key={r.nombre} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              {/* Posición */}
               <div style={{ width: 28, height: 28, borderRadius: '50%', background: medalColor(i), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: i < 3 ? '#fff' : '#6b7280' }}>{i + 1}</span>
               </div>
-              {/* Nombre y barra */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.nombre}</span>
