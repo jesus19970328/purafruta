@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from "react";
-import { Leaf, Thermometer, Layers, Package, ClipboardList, DollarSign, PenLine, Trash2, Check, X, AlertTriangle, Warehouse, Store, CheckCircle } from "lucide-react";
+import { Leaf, Thermometer, Layers, Package, ClipboardList, DollarSign, PenLine, Trash2, Check, X, AlertTriangle, Warehouse, Store, CheckCircle, Plus } from "lucide-react";
 
 const SB_URL = 'https://iepqhmxgdyuthcsmxadb.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllcHFobXhnZHl1dGhjc214YWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzODM1MjcsImV4cCI6MjA5NDk1OTUyN30.WWUs3xNpaMAYcvp2TAVuqQdCHGCsKIV0fdDF3Y45sLE';
