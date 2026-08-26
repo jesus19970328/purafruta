@@ -439,18 +439,15 @@ function NuevaHojita({ tok, onGuardado }) {
   const costoInd = (parseFloat(indirectos.bolsa_vacio || 0) * indirectos.costo_bolsa_vacio) + (parseFloat(indirectos.bolsa_basura || 0) * indirectos.costo_bolsa_basura) + (parseFloat(indirectos.guantes || 0) * indirectos.costo_guante) + (parseFloat(indirectos.vasos || 0) * indirectos.costo_vaso);
   const cantPaq = parseFloat(paquetes || 0);
 
-  // Convierte peso_neto (en gramos) a la UDM del ingrediente para calcular costo
+  // Costo ingrediente — pesos ya en kg
   const calcularCostoIngrediente = (m) => {
     const pesoNeto = parseFloat(m.peso_neto || 0);
     const precio = parseFloat(m.precio_unitario || 0);
     if (!precio || !pesoNeto) return 0;
-    // Convertir gramos a la UDM elegida
+    // udm kg o lt → directo; g o ml → dividir 1000; unidad → directo
     let cantidad;
-    if (m.udm === 'kg') cantidad = pesoNeto / 1000;
-    else if (m.udm === 'g') cantidad = pesoNeto;
-    else if (m.udm === 'lt') cantidad = pesoNeto / 1000;
-    else if (m.udm === 'ml') cantidad = pesoNeto;
-    else cantidad = pesoNeto; // unidad
+    if (m.udm === 'g' || m.udm === 'ml') cantidad = pesoNeto / 1000;
+    else cantidad = pesoNeto;
     return cantidad * precio;
   };
 
@@ -458,8 +455,8 @@ function NuevaHojita({ tok, onGuardado }) {
   const costoMP = materia.filter(m => m.nombre && parseFloat(m.peso_neto) > 0).reduce((s, m) => {
     // Primero intenta usar precio de la última compra
     if (m.producto_id && preciosMP[m.producto_id]) {
-      const usadoG = parseFloat(m.peso_neto) - parseFloat(m.sobra_neto || 0);
-      return s + ((usadoG / 1000) * preciosMP[m.producto_id].precioKg);
+      const usadoKgCalc = parseFloat(m.peso_neto) - parseFloat(m.sobra_neto || 0);
+      return s + (usadoKgCalc * preciosMP[m.producto_id].precioKg);
     }
     // Si no hay compra registrada, usa el precio manual ingresado
     if (m.precio_unitario) return s + calcularCostoIngrediente(m);
@@ -493,8 +490,7 @@ function NuevaHojita({ tok, onGuardado }) {
         for (const mat of materialesConId) {
           const fresco = frescos.find(f => f.producto_id === mat.producto_id);
           if (fresco) {
-            const usado = parseFloat(mat.peso_neto) - parseFloat(mat.sobra_neto || 0);
-            const usadoKg = usado / 1000;
+            const usadoKg = parseFloat(mat.peso_neto) - parseFloat(mat.sobra_neto || 0);
             const stockAnterior = parseFloat(fresco.stock_actual || 0);
             const stockNuevo = Math.max(0, stockAnterior - usadoKg);
             await db.patch('sucursal_inventario', `id=eq.${fresco.id}`, { stock_actual: stockNuevo, ultima_actualizacion: new Date().toISOString() }, tok);
@@ -557,9 +553,9 @@ function NuevaHojita({ tok, onGuardado }) {
               </div>
               <Inp label="Fecha M.P." type="date" value={m.fecha_mp} onChange={e => updM(i, 'fecha_mp', e.target.value)} />
               <Row2>
-                <Inp label="Peso Bruto (g)" type="number" value={m.peso_bruto} onChange={e => updM(i, 'peso_bruto', e.target.value)} placeholder="0" />
-                <Inp label="Peso Neto (g)" type="number" value={m.peso_neto} onChange={e => updM(i, 'peso_neto', e.target.value)} placeholder="0" />
-                <Inp label="Sobra Neto (g)" type="number" value={m.sobra_neto} onChange={e => updM(i, 'sobra_neto', e.target.value)} placeholder="0" />
+                <Inp label="Peso Bruto (kg)" type="number" value={m.peso_bruto} onChange={e => updM(i, 'peso_bruto', e.target.value)} placeholder="0" />
+                <Inp label="Peso Neto (kg)" type="number" value={m.peso_neto} onChange={e => updM(i, 'peso_neto', e.target.value)} placeholder="0" />
+                <Inp label="Sobra Neto (kg)" type="number" value={m.sobra_neto} onChange={e => updM(i, 'sobra_neto', e.target.value)} placeholder="0" />
               </Row2>
               <Row2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -579,9 +575,9 @@ function NuevaHojita({ tok, onGuardado }) {
           ))}
           {(totalNeto > 0 || totalSobra > 0) && (
             <div style={{ background: '#f0fdf4', borderRadius: 10, padding: 12, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              <div><p style={{ fontSize: 11, color: '#6b7280', margin: '0 0 2px', fontWeight: 600 }}>TOTAL NETO</p><p style={{ fontSize: 16, fontWeight: 700, color: '#15803d', margin: 0 }}>{totalNeto.toLocaleString()} g</p></div>
-              <div><p style={{ fontSize: 11, color: '#6b7280', margin: '0 0 2px', fontWeight: 600 }}>TOTAL SOBRA</p><p style={{ fontSize: 16, fontWeight: 700, color: '#dc2626', margin: 0 }}>{totalSobra.toLocaleString()} g</p></div>
-              <div><p style={{ fontSize: 11, color: '#6b7280', margin: '0 0 2px', fontWeight: 600 }}>NETO USADO</p><p style={{ fontSize: 16, fontWeight: 700, color: '#1d4ed8', margin: 0 }}>{(totalNeto - totalSobra).toLocaleString()} g</p></div>
+              <div><p style={{ fontSize: 11, color: '#6b7280', margin: '0 0 2px', fontWeight: 600 }}>TOTAL NETO</p><p style={{ fontSize: 16, fontWeight: 700, color: '#15803d', margin: 0 }}>{totalNeto.toLocaleString()} kg</p></div>
+              <div><p style={{ fontSize: 11, color: '#6b7280', margin: '0 0 2px', fontWeight: 600 }}>TOTAL SOBRA</p><p style={{ fontSize: 16, fontWeight: 700, color: '#dc2626', margin: 0 }}>{totalSobra.toLocaleString()} kg</p></div>
+              <div><p style={{ fontSize: 11, color: '#6b7280', margin: '0 0 2px', fontWeight: 600 }}>NETO USADO</p><p style={{ fontSize: 16, fontWeight: 700, color: '#1d4ed8', margin: 0 }}>{(totalNeto - totalSobra).toLocaleString()} kg</p></div>
             </div>
           )}
         </div>
@@ -785,9 +781,9 @@ function DetalleHojita({ lote, onVolver }) {
             <div key={i} style={{ background: '#f9fafb', borderRadius: 10, padding: 12 }}>
               <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 8px' }}>{m.nombre}</p>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13 }}>
-                <span style={{ color: '#6b7280' }}>Bruto: <strong>{parseInt(m.peso_bruto || 0).toLocaleString()} g</strong></span>
-                <span style={{ color: '#15803d' }}>Neto: <strong>{parseInt(m.peso_neto || 0).toLocaleString()} g</strong></span>
-                <span style={{ color: '#dc2626' }}>Sobra: <strong>{parseInt(m.sobra_neto || 0).toLocaleString()} g</strong></span>
+                <span style={{ color: '#6b7280' }}>Bruto: <strong>{parseFloat(m.peso_bruto || 0).toLocaleString()} kg</strong></span>
+                <span style={{ color: '#15803d' }}>Neto: <strong>{parseFloat(m.peso_neto || 0).toLocaleString()} kg</strong></span>
+                <span style={{ color: '#dc2626' }}>Sobra: <strong>{parseFloat(m.sobra_neto || 0).toLocaleString()} kg</strong></span>
               </div>
             </div>
           ))}
