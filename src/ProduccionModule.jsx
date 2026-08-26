@@ -375,11 +375,14 @@ function NuevaHojita({ tok, onGuardado }) {
   const [err, setErr] = useState('');
 
   const [general, setGeneral] = useState({ fecha: new Date().toISOString().split('T')[0], producto_id: '', gramaje: '', tamano: 'grande', congelador_nro: '', numero_hojita: '' });
-  const [materia, setMateria] = useState(Array(6).fill(null).map(() => ({ nombre: '', fecha_mp: '', peso_bruto: '', peso_neto: '', sobra_neto: '', producto_id: '', precio_unitario: '', udm: 'kg', _sugerencias: [], _mostrarSug: false })));
+  const emptyMateria = () => ({ nombre: '', fecha_mp: '', peso_bruto: '', peso_neto: '', sobra_neto: '', producto_id: '', precio_unitario: '', udm: 'kg', _sugerencias: [], _mostrarSug: false });
+  const [materia, setMateria] = useState([emptyMateria()]);
   const [paquetes, setPaquetes] = useState('');
-  const [operadores, setOperadores] = useState(Array(3).fill(null).map(() => ({ nombre: '', inicio: '', fin: '' })));
+  const emptyOp = () => ({ nombre: '', inicio: '', fin: '' });
+  const [operadores, setOperadores] = useState([emptyOp()]);
   const [indirectos, setIndirectos] = useState({ bolsa_vacio: '', bolsa_basura: '', guantes: '', vasos: '', costo_bolsa_vacio: 500, costo_bolsa_basura: 300, costo_guante: 2000, costo_vaso: 200 });
-  const [tareas, setTareas] = useState(Array(3).fill(null).map(() => ({ inicio: '', fin: '', descripcion: '' })));
+  const emptyTarea = () => ({ inicio: '', fin: '', descripcion: '' });
+  const [tareas, setTareas] = useState([emptyTarea()]);
   const [firmas, setFirmas] = useState({ nombres_operadores: '', jefe_prod: 'Isaac', firma_almacen: '' });
   const [preciosMP, setPreciosMP] = useState({}); // producto_id -> precio_por_kg
 
@@ -528,11 +531,14 @@ function NuevaHojita({ tok, onGuardado }) {
       </Card>
 
       <Card>
-        <CardHead title="Materia Prima" titleIcon={Leaf} sub="Buscá en frescos o escribí el nombre · Pesos en gramos" />
+        <CardHead title="Materia Prima" titleIcon={Leaf} sub="Buscá en frescos o escribí el nombre · Pesos en gramos" action={<button onClick={() => setMateria([...materia, emptyMateria()])} style={{ display:'flex', alignItems:'center', gap:5, background:'#f0fdf4', color:'#15803d', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, fontWeight:700, cursor:'pointer' }}><Plus size={13} /> Agregar ingrediente</button>} />
         <div style={sec}>
           {materia.map((m, i) => (
             <div key={i} style={{ background: '#f9fafb', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#6b7280' }}>Ingrediente {i + 1}</div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#6b7280' }}>Ingrediente {i + 1}</span>
+                {materia.length > 1 && <button onClick={() => setMateria(materia.filter((_, idx) => idx !== i))} style={{ background:'#fef2f2', color:'#dc2626', border:'none', borderRadius:6, padding:'4px 8px', cursor:'pointer', display:'flex', alignItems:'center', gap:3, fontSize:11 }}><Trash2 size={11} /> Quitar</button>}
+              </div>
               <div style={{ position: 'relative' }}>
                 <Field label="Nombre / Buscar en frescos">
                   <input value={m.nombre} onChange={e => buscarFresco(i, e.target.value)} onBlur={() => cerrarSug(i)} placeholder="Ej: Naranja, Piña..." style={inp} />
@@ -589,11 +595,14 @@ function NuevaHojita({ tok, onGuardado }) {
       </Card>
 
       <Card>
-        <CardHead title="⏱ Hora de Trabajo" sub="Ingresá cada operador y su horario" />
+        <CardHead title="Hora de Trabajo" sub="Ingresá cada operador y su horario" action={<button onClick={() => setOperadores([...operadores, emptyOp()])} style={{ display:'flex', alignItems:'center', gap:5, background:'#f0fdf4', color:'#15803d', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, fontWeight:700, cursor:'pointer' }}><Plus size={13} /> Agregar operador</button>} />
         <div style={sec}>
           {operadores.map((op, i) => (
             <div key={i} style={{ background: '#f9fafb', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#6b7280' }}>Operador {i + 1}</div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#6b7280' }}>Operador {i + 1}</span>
+                {operadores.length > 1 && <button onClick={() => setOperadores(operadores.filter((_, idx) => idx !== i))} style={{ background:'#fef2f2', color:'#dc2626', border:'none', borderRadius:6, padding:'4px 8px', cursor:'pointer', display:'flex', alignItems:'center', gap:3, fontSize:11 }}><Trash2 size={11} /> Quitar</button>}
+              </div>
               <Inp label="Nombre" value={op.nombre} onChange={e => updO(i, 'nombre', e.target.value)} placeholder="Nombre del operador" />
               <Row2>
                 <Inp label="Hora inicio" type="time" value={op.inicio} onChange={e => updO(i, 'inicio', e.target.value)} />
@@ -632,11 +641,14 @@ function NuevaHojita({ tok, onGuardado }) {
       </Card>
 
       <Card>
-        <CardHead title="Otras Tareas" titleIcon={ClipboardList} sub="Tareas adicionales de la jornada" />
+        <CardHead title="Otras Tareas" titleIcon={ClipboardList} sub="Tareas adicionales de la jornada" action={<button onClick={() => setTareas([...tareas, emptyTarea()])} style={{ display:'flex', alignItems:'center', gap:5, background:'#f0fdf4', color:'#15803d', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, fontWeight:700, cursor:'pointer' }}><Plus size={13} /> Agregar tarea</button>} />
         <div style={sec}>
           {tareas.map((t, i) => (
             <div key={i} style={{ background: '#f9fafb', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#6b7280' }}>Tarea {i + 1}</div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#6b7280' }}>Tarea {i + 1}</span>
+                {tareas.length > 1 && <button onClick={() => setTareas(tareas.filter((_, idx) => idx !== i))} style={{ background:'#fef2f2', color:'#dc2626', border:'none', borderRadius:6, padding:'4px 8px', cursor:'pointer', display:'flex', alignItems:'center', gap:3, fontSize:11 }}><Trash2 size={11} /> Quitar</button>}
+              </div>
               <Inp label="Descripción" value={t.descripcion} onChange={e => updT(i, 'descripcion', e.target.value)} placeholder="Ej: Limpieza del área" />
               <Row2>
                 <Inp label="Hora inicio" type="time" value={t.inicio} onChange={e => updT(i, 'inicio', e.target.value)} />
