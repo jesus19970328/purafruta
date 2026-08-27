@@ -424,6 +424,11 @@ function NuevaHojita({ tok, onGuardado }) {
     n[i].producto_id = fresco.producto_id;
     n[i]._sugerencias = [];
     n[i]._mostrarSug = false;
+    // Auto-rellenar precio desde última compra registrada
+    if (preciosMP[fresco.producto_id]) {
+      n[i].precio_unitario = String(preciosMP[fresco.producto_id].precioKg);
+      n[i].udm = 'kg';
+    }
     setMateria(n);
   };
 
@@ -564,7 +569,12 @@ function NuevaHojita({ tok, onGuardado }) {
                     {['kg', 'g', 'lt', 'ml', 'unidad'].map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
-                <Inp label="Precio unitario (Gs. por UDM)" type="number" value={m.precio_unitario} onChange={e => updM(i, 'precio_unitario', e.target.value)} placeholder="Ej: 5000" />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <Inp label="Precio unitario (Gs. por UDM)" type="number" value={m.precio_unitario} onChange={e => updM(i, 'precio_unitario', e.target.value)} placeholder="Ej: 5000" />
+                  {m.producto_id && preciosMP[m.producto_id] && (
+                    <p style={{ fontSize: 11, color: '#6b7280', margin: '2px 0 0' }}>Último precio en compras: <strong>{gs(preciosMP[m.producto_id].precioKg)}/kg</strong></p>
+                  )}
+                </div>
               </Row2>
               {m.nombre && m.precio_unitario && parseFloat(m.peso_neto) > 0 && (
                 <div style={{ background: '#eff6ff', borderRadius: 8, padding: '7px 12px', fontSize: 12, color: '#1d4ed8', fontWeight: 600 }}>
