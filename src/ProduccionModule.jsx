@@ -389,17 +389,20 @@ function NuevaHojita({ tok, onGuardado }) {
   useEffect(() => {
     db.get('productos', 'activo=eq.true&order=nombre', tok).then(d => setProds(Array.isArray(d) ? d : []));
     db.get('sucursal_inventario', 'select=*,productos(nombre,unidad)&order=productos(nombre)', tok).then(d => setFrescos(Array.isArray(d) ? d : []));
-    // Cargar últimos precios de compra por producto (precio_unitario en Gs. por unidad declarada)
-    db.get('compras_detalle', 'select=producto_id,precio_unitario,unidad,compras(fecha)&order=compras(fecha).desc', tok).then(d => {
+    // Cargar últimos precios de compra por producto
+    db.get('compras_detalle', 'select=producto_id,precio_unitario,unidad,compra_id,compras(fecha)&order=compra_id.desc', tok).then(d => {
       if (!Array.isArray(d)) return;
       const map = {};
-      d.forEach(r => {
+      // Ordenar por fecha de compra descendente antes de mapear
+      const sorted = [...d].sort((a, b) => {
+        const fa = a.compras?.fecha || '';
+        const fb = b.compras?.fecha || '';
+        return fb.localeCompare(fa);
+      });
+      sorted.forEach(r => {
         if (!map[r.producto_id] && r.precio_unitario > 0) {
-          // Normalizar a Gs. por kg
           let precioKg = parseFloat(r.precio_unitario);
           if (r.unidad === 'g') precioKg = precioKg * 1000;
-          else if (r.unidad === 'kg') precioKg = precioKg;
-          else precioKg = precioKg; // unidad o paquete: precio por unidad
           map[r.producto_id] = { precioKg, unidad: r.unidad, precioUnit: parseFloat(r.precio_unitario) };
         }
       });
