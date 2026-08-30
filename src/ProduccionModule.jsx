@@ -248,7 +248,7 @@ function ModalSalida({ tok, row, tabla, onClose }) {
         <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Tipo */}
           <div style={{ display: 'flex', gap: 8 }}>
-            {[['salida_sucursal', 'A sucursal'], ['salida_consumo', 'Consumo interno']].map(([val, lbl]) => (
+            {[['salida_sucursal', 'A sucursal'], ['salida_consumo', 'Consumo interno'], ['salida_cliente', 'Cliente externo']].map(([val, lbl]) => (
               <button key={val} onClick={() => setTipo(val)} style={{ flex: 1, padding: '10px', borderRadius: 10, border: `2px solid ${tipo === val ? '#1d4ed8' : '#e5e7eb'}`, background: tipo === val ? '#eff6ff' : '#fff', color: tipo === val ? '#1d4ed8' : '#374151', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{lbl}</button>
             ))}
           </div>
@@ -257,7 +257,12 @@ function ModalSalida({ tok, row, tabla, onClose }) {
             <input type="number" value={cantidad} onChange={e => setCantidad(e.target.value)} placeholder={`Máx: ${stockActual}`} style={inp} />
           </Field>
           {/* Sucursal o responsable */}
-          {tipo === 'salida_sucursal' ? (
+          {tipo === 'salida_cliente' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Nombre del cliente</label>
+              <input value={sucursal} onChange={e => setSucursal(e.target.value)} placeholder="Nombre del cliente" style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#111827', background: '#fafafa', outline: 'none' }} />
+            </div>
+          ) : tipo === 'salida_sucursal' ? (
             <Field label="Sucursal *">
               <select value={sucursal} onChange={e => setSucursal(e.target.value)} style={inp}>
                 <option value="">Seleccionar...</option>
@@ -713,13 +718,23 @@ function Historial({ tok }) {
   const [lotes, setLotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [detalle, setDetalle] = useState(null);
+  const [eliminando, setEliminando] = useState(null);
 
-  useEffect(() => {
-    db.get('produccion_lotes', 'order=created_at.desc&limit=50&select=*,produccion_detalle(*,productos(nombre))', tok)
-      .then(d => { setLotes(Array.isArray(d) ? d : []); setLoading(false); });
-  }, [tok]);
+  const load = () => db.get('produccion_lotes', 'order=created_at.desc&select=*,produccion_detalle(*,productos(nombre))', tok)
+    .then(d => { setLotes(Array.isArray(d) ? d : []); setLoading(false); });
 
-  if (detalle) return <DetalleHojita lote={detalle} onVolver={() => setDetalle(null)} />;
+  useEffect(() => { load(); }, [tok]);
+
+  const eliminar = async (l) => {
+    if (!window.confirm(`¿Eliminar esta hojita? Esta acción no se puede deshacer.`)) return;
+    setEliminando(l.id);
+    await db.delete('produccion_detalle', `lote_id=eq.${l.id}`, tok);
+    await db.delete('produccion_lotes', `id=eq.${l.id}`, tok);
+    setEliminando(null);
+    load();
+  };
+
+  if (detalle) return <DetalleHojita lote={detalle} tok={tok} onVolver={() => { setDetalle(null); load(); }} />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -731,16 +746,15 @@ function Historial({ tok }) {
             try { calc = JSON.parse(l.observacion || '{}')?.calculos || {}; } catch {}
             const det = l.produccion_detalle?.[0];
             return (
-              <div key={l.id} style={{ padding: '12px 16px', borderBottom: i < lotes.length - 1 ? '1px solid #f3f4f6' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 2px', textTransform: 'uppercase' }}>{det?.productos?.nombre || '—'}</p>
-                  <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>{fd(l.fecha)} · {det?.cantidad_producida || 0} paquetes</p>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                    {calc.costoUnit > 0 && <span style={{ background: '#fff7ed', color: '#c2410c', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>Costo: {gs(calc.costoUnit)}</span>}
-                    {calc.precioSug > 0 && <span style={{ background: '#f0fdf4', color: '#15803d', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>P. sug.: {gs(calc.precioSug)}</span>}
-                  </div>
+              <div key={l.id} style={{ padding: '10px 14px', borderBottom: i < lotes.length - 1 ? '1px solid #f3f4f6' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontWeight: 700, fontSize: 13, color: '#111827', margin: '0 0 1px', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{det?.productos?.nombre || '—'}</p>
+                  <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>{fd(l.fecha)} · {det?.cantidad_producida || 0} paq. {calc.costoUnit > 0 && `· Costo: ${gs(calc.costoUnit)}`}</p>
                 </div>
-                <button onClick={() => setDetalle(l)} style={{ background: '#f0fdf4', color: '#15803d', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}>Ver</button>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => setDetalle(l)} style={{ background: '#f0fdf4', color: '#15803d', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>Ver</button>
+                  <button onClick={() => eliminar(l)} disabled={eliminando === l.id} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>{eliminando === l.id ? '...' : 'Eliminar'}</button>
+                </div>
               </div>
             );
           })}
@@ -749,7 +763,6 @@ function Historial({ tok }) {
     </div>
   );
 }
-
 // ── DETALLE HOJITA ─────────────────────────────────────────
 function DetalleHojita({ lote, onVolver }) {
   let data = {};
