@@ -93,8 +93,13 @@ function InventarioStock({ tok, tabla, titulo, emoji, tipoSalida }) {
 
   const load = () => {
     setLoading(true);
-    db.get(tabla, 'select=*,productos(nombre,unidad)&order=productos(nombre)', tok)
-      .then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
+    db.get(tabla, 'select=*,productos(nombre,unidad)', tok)
+      .then(d => {
+        const data = Array.isArray(d) ? d : [];
+        data.sort((a, b) => parseFloat(b.stock_actual || 0) - parseFloat(a.stock_actual || 0));
+        setRows(data);
+        setLoading(false);
+      });
   };
 
   useEffect(() => { load(); }, [tok, tabla]);

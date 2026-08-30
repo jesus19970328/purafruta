@@ -1137,6 +1137,7 @@ function Clientes({ tok, onVerPedido }) {
   const [expandido, setExpandido] = useState(null);
   const [pedidosCliente, setPedidosCliente] = useState([]);
   const [loadingPedidos, setLoadingPedidos] = useState(false);
+  const [buscaCliente, setBuscaCliente] = useState('');
 
   const toggleExpandido = async (c) => {
     if (expandido === c.id) { setExpandido(null); return; }
@@ -1295,7 +1296,8 @@ function Clientes({ tok, onVerPedido }) {
       {loading ? <p style={{ padding: 30, color: '#9ca3af' }}>Cargando...</p> :
         rows.length === 0 ? <p style={{ padding: 30, color: '#9ca3af' }}>No hay clientes registrados</p> :
           <div style={{ padding: '8px 14px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {rows.map(c => (
+            <input value={buscaCliente} onChange={e => setBuscaCliente(e.target.value)} placeholder="Buscar cliente..." style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#111827', background: '#fafafa', outline: 'none', marginBottom: 4 }} />
+            {rows.filter(c => !buscaCliente || c.nombre?.toLowerCase().includes(buscaCliente.toLowerCase())).map(c => (
               <div key={c.id} style={{ borderRadius: 10, padding: '10px 14px', border: '1px solid #e5e7eb', background: '#fff' }}>
                 {editId === c.id ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1357,6 +1359,9 @@ function Clientes({ tok, onVerPedido }) {
                 )}
               </div>
             ))}
+            {rows.filter(c => !buscaCliente || c.nombre?.toLowerCase().includes(buscaCliente.toLowerCase())).length === 0 && buscaCliente && (
+              <p style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', padding: 16 }}>No se encontró ningún cliente</p>
+            )}
           </div>
       }
     </Card>
