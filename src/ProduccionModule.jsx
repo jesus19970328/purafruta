@@ -447,15 +447,14 @@ function NuevaHojita({ tok, onGuardado }) {
   const costoInd = (parseFloat(indirectos.bolsa_vacio || 0) * indirectos.costo_bolsa_vacio) + (parseFloat(indirectos.bolsa_basura || 0) * indirectos.costo_bolsa_basura) + (parseFloat(indirectos.guantes || 0) * indirectos.costo_guante) + (parseFloat(indirectos.vasos || 0) * indirectos.costo_vaso);
   const cantPaq = parseFloat(paquetes || 0);
 
-  // Costo ingrediente — pesos ya en kg
+  // Costo ingrediente — pesos ya en kg, usa peso bruto para costo estimado
   const calcularCostoIngrediente = (m) => {
-    const pesoNeto = parseFloat(m.peso_neto || 0);
+    const pesoBruto = parseFloat(m.peso_bruto || 0);
     const precio = parseFloat(m.precio_unitario || 0);
-    if (!precio || !pesoNeto) return 0;
-    // udm kg o lt → directo; g o ml → dividir 1000; unidad → directo
+    if (!precio || !pesoBruto) return 0;
     let cantidad;
-    if (m.udm === 'g' || m.udm === 'ml') cantidad = pesoNeto / 1000;
-    else cantidad = pesoNeto;
+    if (m.udm === 'g' || m.udm === 'ml') cantidad = pesoBruto / 1000;
+    else cantidad = pesoBruto;
     return cantidad * precio;
   };
 
@@ -579,7 +578,7 @@ function NuevaHojita({ tok, onGuardado }) {
                   )}
                 </div>
               </Row2>
-              {m.nombre && m.precio_unitario && parseFloat(m.peso_neto) > 0 && (
+              {m.nombre && m.precio_unitario && parseFloat(m.peso_bruto) > 0 && (
                 <div style={{ background: '#eff6ff', borderRadius: 8, padding: '7px 12px', fontSize: 12, color: '#1d4ed8', fontWeight: 600 }}>
                   Costo estimado: {gs(calcularCostoIngrediente(m))}
                 </div>

@@ -215,7 +215,7 @@ export default function ClientesModule({ tok }) {
       <Tabs tabs={[['pedidos', 'Pedidos'], ['clientes', 'Clientes'], ['cuentas', 'Cuentas pendientes'], ['ranking', 'Ranking']]} active={tab} onChange={setTab} />
       {tab === 'pedidos' && <Pedidos tok={tok} />}
       {tab === 'clientes' && <Clientes tok={tok} onVerPedido={p => { setPedidoDetalle(p); }} />}
-      {tab === 'cuentas' && <CuentasPendientes tok={tok} />}
+      {tab === 'cuentas' && <CuentasPendientes tok={tok} onVerPedido={p => { setPedidoDetalle(p); setTab('pedidos'); }} />}
       {tab === 'ranking' && <RankingProductos tok={tok} />}
     </div>
   );
@@ -234,6 +234,8 @@ function Pedidos({ tok }) {
   const [saving, setSaving] = useState(false);
   const [busca, setBusca] = useState('');
   const [stats, setStats] = useState({ semana: 0, mes: 0, clientesNuevosSemana: 0, pedidosSemana: 0, pedidosMes: 0 });
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 30;
 
   const load = () => {
     const hoy = new Date();
@@ -243,7 +245,7 @@ function Pedidos({ tok }) {
     const inicioMes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
     const inicioSemanaStr = inicioSemana.toISOString().split('T')[0];
     return Promise.all([
-      db.get('pedidos_externos', 'order=created_at.desc&limit=50&select=*,clientes_externos(nombre,telefono)', tok),
+      db.get('pedidos_externos', 'order=fecha.desc&select=*,clientes_externos(nombre,telefono)', tok),
       db.get('clientes_externos', 'activo=neq.false&order=nombre', tok),
       db.get('productos', 'activo=eq.true&order=nombre', tok),
       db.get('pedidos_externos', `fecha=gte.${inicioSemanaStr}&select=total,estado,fecha`, tok),
@@ -458,29 +460,41 @@ function Pedidos({ tok }) {
           pedidos.length === 0 ? <p style={{ textAlign: 'center', padding: 30, color: '#9ca3af' }}>No hay pedidos registrados</p> :
             <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <input
-                value={busca} onChange={e => setBusca(e.target.value)}
+                value={busca} onChange={e => { setBusca(e.target.value); setPagina(1); }}
                 placeholder="Buscar por nombre de cliente..."
                 style={{ ...inp, marginBottom: 4 }}
               />
-              {pedidos.filter(p => !busca || p.clientes_externos?.nombre?.toLowerCase().includes(busca.toLowerCase())).map(p => (
-                <div key={p.id} style={{ background: '#fff', borderRadius: 12, padding: 14, border: `1.5px solid ${p.estado === 'pendiente' ? '#fde68a' : p.estado === 'vencido' ? '#fecaca' : '#e5e7eb'}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 4px' }}>{p.clientes_externos?.nombre}</p>
-                      <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 6px' }}>{fd(p.fecha)} {p.fecha_vencimiento && p.estado !== 'pagado' ? `· Vence: ${fd(p.fecha_vencimiento)}` : ''}</p>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <Badge color={ec[p.estado]}>{p.estado}</Badge>
-                        <span style={{ fontSize: 12, color: '#6b7280' }}>{ep[p.medio_pago]} {p.medio_pago}</span>
+              {(() => {
+                const filtrados = pedidos.filter(p => !busca || p.clientes_externos?.nombre?.toLowerCase().includes(busca.toLowerCase()));
+                const visibles = filtrados.slice(0, pagina * POR_PAGINA);
+                return (<>
+                  {visibles.map(p => (
+                    <div key={p.id} style={{ background: '#fff', borderRadius: 12, padding: 14, border: `1.5px solid ${p.estado === 'pendiente' ? '#fde68a' : p.estado === 'vencido' ? '#fecaca' : '#e5e7eb'}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 4px' }}>{p.clientes_externos?.nombre}</p>
+                          <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 6px' }}>{fd(p.fecha)} {p.fecha_vencimiento && p.estado !== 'pagado' ? `· Vence: ${fd(p.fecha_vencimiento)}` : ''}</p>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <Badge color={ec[p.estado]}>{p.estado}</Badge>
+                            <span style={{ fontSize: 12, color: '#6b7280' }}>{ep[p.medio_pago]} {p.medio_pago}</span>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <p style={{ fontWeight: 700, fontSize: 16, color: '#111827', margin: '0 0 2px' }}>{gs(p.total)}</p>
+                          {p.saldo > 0 && <p style={{ fontSize: 13, color: '#dc2626', fontWeight: 600, margin: '0 0 8px' }}>Saldo: {gs(p.saldo)}</p>}
+                          <button onClick={() => setDetalle(p)} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Ver / Pagar</button>
+                        </div>
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <p style={{ fontWeight: 700, fontSize: 16, color: '#111827', margin: '0 0 2px' }}>{gs(p.total)}</p>
-                      {p.saldo > 0 && <p style={{ fontSize: 13, color: '#dc2626', fontWeight: 600, margin: '0 0 8px' }}>Saldo: {gs(p.saldo)}</p>}
-                      <button onClick={() => setDetalle(p)} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Ver / Pagar</button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  ))}
+                  {visibles.length < filtrados.length && (
+                    <button onClick={() => setPagina(pagina + 1)} style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer', width: '100%' }}>
+                      Ver más ({filtrados.length - visibles.length} restantes)
+                    </button>
+                  )}
+                  <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', margin: 0 }}>Mostrando {visibles.length} de {filtrados.length} pedidos</p>
+                </>);
+              })()}
             </div>
         }
       </Card>
@@ -1350,9 +1364,10 @@ function Clientes({ tok, onVerPedido }) {
 }
 
 // ── CUENTAS PENDIENTES ────────────────────────────────────
-function CuentasPendientes({ tok }) {
+function CuentasPendientes({ tok, onVerPedido }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [busca, setBusca] = useState('');
 
   useEffect(() => {
     db.get('pedidos_externos', "estado=in.(pendiente,parcial,vencido)&order=fecha_vencimiento&select=*,clientes_externos(nombre,telefono)", tok)
@@ -1440,10 +1455,14 @@ function CuentasPendientes({ tok }) {
       {loading ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Cargando...</p> :
         rows.length === 0 ? <p style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>No hay cuentas pendientes </p> :
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {rows.map(r => {
+            <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por nombre de cliente..." style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#111827', background: '#fafafa', outline: 'none' }} />
+            {rows.filter(r => !busca || r.clientes_externos?.nombre?.toLowerCase().includes(busca.toLowerCase())).map(r => {
               const vencido = r.fecha_vencimiento && new Date(r.fecha_vencimiento) < hoy;
               return (
-                <div key={r.id} style={{ background: '#fff', borderRadius: 12, border: `1px solid ${vencido ? '#fecaca' : '#e5e7eb'}`, padding: 14 }}>
+                <div key={r.id} onClick={() => onVerPedido && onVerPedido(r)} style={{ background: '#fff', borderRadius: 12, border: `1px solid ${vencido ? '#fecaca' : '#e5e7eb'}`, padding: 14, cursor: 'pointer' }}
+                  onMouseEnter={e => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'}
+                  onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+                >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <p style={{ fontWeight: 700, fontSize: 14, color: '#111827', margin: '0 0 2px' }}>{r.clientes_externos?.nombre}</p>
@@ -1457,7 +1476,8 @@ function CuentasPendientes({ tok }) {
                     <div style={{ textAlign: 'right' }}>
                       <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 2px' }}>Total: {gs(r.total)}</p>
                       <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 4px' }}>Pagado: {gs(r.total_pagado)}</p>
-                      <p style={{ fontWeight: 700, fontSize: 16, color: '#dc2626', margin: 0 }}>Saldo: {gs(r.saldo)}</p>
+                      <p style={{ fontWeight: 700, fontSize: 16, color: '#dc2626', margin: '0 0 4px' }}>Saldo: {gs(r.saldo)}</p>
+                      <span style={{ fontSize: 11, color: '#1d4ed8', fontWeight: 600 }}>Registrar pago →</span>
                     </div>
                   </div>
                 </div>
