@@ -233,7 +233,7 @@ function Pedidos({ tok }) {
   const [items, setItems] = useState([]);
   const [saving, setSaving] = useState(false);
   const [busca, setBusca] = useState('');
-  const [stats, setStats] = useState({ semana: 0, mes: 0, clientesNuevosSemana: 0, pedidosSemana: 0, pedidosMes: 0 });
+  const [stats, setStats] = useState({ semana: 0, mes: 0, totalTiempo: 0, clientesNuevosSemana: 0, pedidosSemana: 0, pedidosMes: 0 });
   const [pagina, setPagina] = useState(1);
   const POR_PAGINA = 30;
 
@@ -251,13 +251,15 @@ function Pedidos({ tok }) {
       db.get('pedidos_externos', `fecha=gte.${inicioSemanaStr}&select=total,estado,fecha`, tok),
       db.get('pedidos_externos', `fecha=gte.${inicioMes}&select=total,estado,fecha`, tok),
       db.get('clientes_externos', `created_at=gte.${inicioSemanaStr}&activo=neq.false&select=id`, tok),
-    ]).then(([p, c, pr, semPeds, mesPeds, clientesSem]) => {
+      db.get('pedidos_externos', 'select=total', tok),
+    ]).then(([p, c, pr, semPeds, mesPeds, clientesSem, todosPeds]) => {
       setPedidos(Array.isArray(p) ? p : []);
       setClientes(Array.isArray(c) ? c : []);
       setProds(Array.isArray(pr) ? pr : []);
       const sem = Array.isArray(semPeds) ? semPeds : [];
       const mes = Array.isArray(mesPeds) ? mesPeds : [];
       setStats({
+        totalTiempo: (Array.isArray(todosPeds) ? todosPeds : []).reduce((s, x) => s + parseFloat(x.total || 0), 0),
         semana: sem.reduce((s, x) => s + parseFloat(x.total || 0), 0),
         mes: mes.reduce((s, x) => s + parseFloat(x.total || 0), 0),
         pedidosSemana: sem.length,
@@ -369,6 +371,7 @@ function Pedidos({ tok }) {
         {/* Dashboard */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, padding: '0 14px 10px' }}>
           {[
+            { label: 'Total ventas (siempre)', valor: gs(stats.totalTiempo), color: '#111827', bg: '#f9fafb', Icono: TrendingUp },
             { label: 'Ventas esta semana', valor: gs(stats.semana), color: '#15803d', bg: '#f0fdf4', Icono: TrendingUp },
             { label: 'Ventas este mes', valor: gs(stats.mes), color: '#1d4ed8', bg: '#eff6ff', Icono: Wallet },
             { label: 'Pedidos esta semana', valor: stats.pedidosSemana, color: '#6d28d9', bg: '#f5f3ff', Icono: Package },

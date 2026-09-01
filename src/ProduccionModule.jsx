@@ -67,11 +67,13 @@ async function registrarMovimiento(tok, { producto_id, tabla_origen, tipo, canti
 // ── MÓDULO PRINCIPAL ───────────────────────────────────────
 export default function ProduccionModule({ tok }) {
   const [tab, setTab] = useState('nueva');
+  const [copiaLote, setCopiaLote] = useState(null);
+  const copiarHojita = (lote) => { setCopiaLote(lote); setTab('nueva'); };
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <Tabs tabs={[['nueva', '+ Nueva hojita'], ['historial', 'Historial'], ['frescos', 'Frescos'], ['congelados', 'Congelados']]} active={tab} onChange={setTab} />
-      {tab === 'nueva' && <NuevaHojita tok={tok} onGuardado={() => setTab('historial')} />}
-      {tab === 'historial' && <Historial tok={tok} />}
+      {tab === 'nueva' && <NuevaHojita tok={tok} onGuardado={() => { setCopiaLote(null); setTab('historial'); }} datosCopia={copiaLote} />}
+      {tab === 'historial' && <Historial tok={tok} onCopiar={copiarHojita} />}
       {tab === 'frescos' && <InventarioStock tok={tok} tabla="sucursal_inventario" titulo="Inventario de Frescos" emoji="🍃" tipoSalida="salida_produccion" />}
       {tab === 'congelados' && <InventarioStock tok={tok} tabla="congelados_inventario" titulo="Inventario de Congelados" emoji="❄️" tipoSalida="salida_sucursal" />}
     </div>
@@ -90,6 +92,18 @@ function InventarioStock({ tok, tabla, titulo, emoji, tipoSalida }) {
   const [ajusteMotivo, setAjusteMotivo] = useState('');
   const [saving, setSaving] = useState(false);
   const [showSalida, setShowSalida] = useState(null);
+  const [expandidoId, setExpandidoId] = useState(null);
+  const [movimientosExp, setMovimientosExp] = useState([]);
+  const [loadingMov, setLoadingMov] = useState(false);
+
+  const toggleExpandido = async (r) => {
+    if (expandidoId === r.id) { setExpandidoId(null); return; }
+    setExpandidoId(r.id);
+    setLoadingMov(true);
+    const m = await db.get('inventario_movimientos', `producto_id=eq.${r.producto_id}&tabla_origen=eq.${tabla}&order=created_at.desc&limit=10`, tok);
+    setMovimientosExp(Array.isArray(m) ? m : []);
+    setLoadingMov(false);
+  };
 
   const load = () => {
     setLoading(true);
@@ -109,8 +123,15 @@ function InventarioStock({ tok, tabla, titulo, emoji, tipoSalida }) {
     setSaving(true);
     const stockAnterior = parseFloat(r.stock_actual || 0);
     const stockNuevo = parseFloat(ajusteVal);
-    await db.patch(tabla, `id=eq.${r.id}`, { stock_actual: stockNuevo, ultima_actualizacion: new Date().toISOString(), observacion: ajusteMotivo || null }, tok);
-    await registrarMovimiento(tok, { producto_id: r.producto_id, tabla_origen: tabla, tipo: 'ajuste', cantidad: Math.abs(stockNuevo - stockAnterior), stock_anterior: stockAnterior, stock_nuevo: stockNuevo, referencia: 'Ajuste manual', responsable: 'Admin', observacion: ajusteMotivo || null });
+    try {
+      const res = await db.patch(tabla, `id=eq.${r.id}`, { stock_actual: stockNuevo, ultima_actualizacion: new Date().toISOString(), observacion: ajusteMotivo || null }, tok);
+      if (res && !Array.isArray(res) && res.code) {
+        console.error('Error patch ajuste:', res);
+        alert('Error al guardar: ' + (res.message || JSON.stringify(res)));
+        setSaving(false); return;
+      }
+      await registrarMovimiento(tok, { producto_id: r.producto_id, tabla_origen: tabla, tipo: 'ajuste', cantidad: Math.abs(stockNuevo - stockAnterior), stock_anterior: stockAnterior, stock_nuevo: stockNuevo, referencia: 'Ajuste manual', responsable: 'Admin', observacion: ajusteMotivo || null });
+    } catch(e) { console.error(e); }
     setAjusteId(null); setAjusteVal(''); setAjusteMotivo(''); setSaving(false); load();
   };
 
@@ -188,7 +209,7 @@ function InventarioStock({ tok, tabla, titulo, emoji, tipoSalida }) {
                         {sinStock && <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 5, padding: '1px 7px', fontSize: 10, fontWeight: 700 }}>SIN STOCK</span>}
                         {bajo && <span style={{ background: '#fefce8', color: '#a16207', borderRadius: 5, padding: '1px 7px', fontSize: 10, fontWeight: 700 }}>STOCK BAJO</span>}
                       </div>
-                      <p style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0 0' }}>Actualizado: {r.ultima_actualizacion ? new Date(r.ultima_actualizacion).toLocaleDateString('es-PY') : '—'} · ver historial →</p>
+                      <p onClick={e => { e.stopPropagation(); toggleExpandido(r); }} style={{ fontSize: 11, color: '#1d4ed8', margin: '2px 0 0', cursor: 'pointer', fontWeight: 600 }}>Actualizado: {r.ultima_actualizacion ? new Date(r.ultima_actualizacion).toLocaleDateString('es-PY') : '—'} · {expandidoId === r.id ? 'ocultar salidas ▲' : 'ver salidas ▼'}</p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {tabla === 'congelados_inventario' && (
@@ -199,6 +220,29 @@ function InventarioStock({ tok, tabla, titulo, emoji, tipoSalida }) {
                         {stock} <span style={{ fontSize: 11, fontWeight: 500 }}>{r.productos?.unidad}</span>
                       </span>
                     </div>
+                  </div>
+                )}
+                {expandidoId === r.id && (
+                  <div style={{ marginTop: 8, borderTop: '1px solid #f3f4f6', paddingTop: 8 }}>
+                    {loadingMov ? <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>Cargando...</p> :
+                      movimientosExp.length === 0 ? <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>Sin movimientos registrados</p> :
+                      movimientosExp.map((m, mi) => {
+                        const esSalida = m.tipo?.startsWith('salida');
+                        return (
+                          <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: mi < movimientosExp.length - 1 ? '1px solid #f9fafb' : 'none', fontSize: 12 }}>
+                            <div>
+                              <span style={{ fontWeight: 600, color: esSalida ? '#dc2626' : '#15803d' }}>{esSalida ? '↓ Salida' : '↑ Entrada'}</span>
+                              <span style={{ color: '#6b7280', marginLeft: 8 }}>{m.referencia || '—'}</span>
+                              {m.responsable && <span style={{ color: '#9ca3af', marginLeft: 6 }}>· {m.responsable}</span>}
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <span style={{ fontWeight: 700, color: esSalida ? '#dc2626' : '#15803d' }}>{esSalida ? '-' : '+'}{m.cantidad} uds</span>
+                              <span style={{ color: '#9ca3af', marginLeft: 6, fontSize: 11 }}>{m.created_at ? new Date(m.created_at).toLocaleDateString('es-PY') : ''}</span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    }
                   </div>
                 )}
               </div>
@@ -378,23 +422,40 @@ function HistorialProducto({ tok, row, tabla, onVolver }) {
 }
 
 // ── NUEVA HOJITA ───────────────────────────────────────────
-function NuevaHojita({ tok, onGuardado }) {
+function NuevaHojita({ tok, onGuardado, datosCopia }) {
   const [prods, setProds] = useState([]);
   const [frescos, setFrescos] = useState([]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
-  const [general, setGeneral] = useState({ fecha: new Date().toISOString().split('T')[0], producto_id: '', gramaje: '', tamano: 'grande', congelador_nro: '', numero_hojita: '' });
   const emptyMateria = () => ({ nombre: '', fecha_mp: '', peso_bruto: '', peso_neto: '', sobra_neto: '', producto_id: '', precio_unitario: '', udm: 'kg', _sugerencias: [], _mostrarSug: false });
+  const emptyOp = () => ({ nombre: '', inicio: '', fin: '' });
+  const emptyTarea = () => ({ inicio: '', fin: '', descripcion: '' });
+
+  const [general, setGeneral] = useState({ fecha: new Date().toISOString().split('T')[0], producto_id: '', gramaje: '', tamano: 'grande', congelador_nro: '', numero_hojita: '' });
   const [materia, setMateria] = useState([emptyMateria()]);
   const [paquetes, setPaquetes] = useState('');
-  const emptyOp = () => ({ nombre: '', inicio: '', fin: '' });
   const [operadores, setOperadores] = useState([emptyOp()]);
   const [indirectos, setIndirectos] = useState({ bolsa_vacio: '', bolsa_basura: '', guantes: '', vasos: '', costo_bolsa_vacio: 500, costo_bolsa_basura: 300, costo_guante: 2000, costo_vaso: 200 });
-  const emptyTarea = () => ({ inicio: '', fin: '', descripcion: '' });
   const [tareas, setTareas] = useState([emptyTarea()]);
   const [firmas, setFirmas] = useState({ nombres_operadores: '', jefe_prod: 'Isaac', firma_almacen: '' });
-  const [preciosMP, setPreciosMP] = useState({}); // producto_id -> precio_por_kg
+  const [preciosMP, setPreciosMP] = useState({});
+
+  useEffect(() => {
+    if (datosCopia) {
+      try {
+        const obs = JSON.parse(datosCopia.observacion || '{}');
+        if (obs.general) setGeneral({ ...obs.general, fecha: new Date().toISOString().split('T')[0], numero_hojita: '' });
+        if (obs.materia?.length) setMateria(obs.materia.map(m => ({ ...m, _sugerencias: [], _mostrarSug: false })));
+        if (obs.operadores?.length) setOperadores(obs.operadores);
+        if (obs.indirectos) setIndirectos(obs.indirectos);
+        if (obs.tareas?.length) setTareas(obs.tareas);
+        if (obs.firmas) setFirmas(obs.firmas);
+        const det = datosCopia.produccion_detalle?.[0];
+        if (det?.cantidad_producida) setPaquetes(String(det.cantidad_producida));
+      } catch {}
+    }
+  }, [datosCopia]);
 
   useEffect(() => {
     db.get('productos', 'activo=eq.true&order=nombre', tok).then(d => setProds(Array.isArray(d) ? d : []));
@@ -512,6 +573,19 @@ function NuevaHojita({ tok, onGuardado }) {
             const stockNuevo = Math.max(0, stockAnterior - usadoKg);
             await db.patch('sucursal_inventario', `id=eq.${fresco.id}`, { stock_actual: stockNuevo, ultima_actualizacion: new Date().toISOString() }, tok);
             await registrarMovimiento(tok, { producto_id: mat.producto_id, tabla_origen: 'sucursal_inventario', tipo: 'salida_produccion', cantidad: usadoKg, stock_anterior: stockAnterior, stock_nuevo: stockNuevo, referencia: `Hojita #${general.numero_hojita || lote.id.slice(-6)}`, responsable: firmas.nombres_operadores || operadores.filter(o => o.nombre).map(o => o.nombre).join(', ') || 'Producción', lote_id: lote.id });
+          }
+        }
+        // ── SUMAR AL INVENTARIO DE CONGELADOS ──────────────────
+        if (general.producto_id && cantPaq > 0) {
+          const congelado = await db.get('congelados_inventario', `producto_id=eq.${general.producto_id}`, tok);
+          const itemCongelado = Array.isArray(congelado) ? congelado[0] : null;
+          if (itemCongelado) {
+            const stockAnterior = parseFloat(itemCongelado.stock_actual || 0);
+            const stockNuevo = stockAnterior + cantPaq;
+            await db.patch('congelados_inventario', `id=eq.${itemCongelado.id}`, { stock_actual: stockNuevo, ultima_actualizacion: new Date().toISOString() }, tok);
+            await registrarMovimiento(tok, { producto_id: general.producto_id, tabla_origen: 'congelados_inventario', tipo: 'entrada_produccion', cantidad: cantPaq, stock_anterior: stockAnterior, stock_nuevo: stockNuevo, referencia: `Hojita #${general.numero_hojita || lote.id.slice(-6)}`, responsable: firmas.nombres_operadores || 'Producción', lote_id: lote.id });
+          } else {
+            await db.post('congelados_inventario', { producto_id: general.producto_id, stock_actual: cantPaq, ultima_actualizacion: new Date().toISOString() }, tok);
           }
         }
         onGuardado();
@@ -719,7 +793,7 @@ function NuevaHojita({ tok, onGuardado }) {
 }
 
 // ── HISTORIAL ──────────────────────────────────────────────
-function Historial({ tok }) {
+function Historial({ tok, onCopiar }) {
   const [lotes, setLotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [detalle, setDetalle] = useState(null);
@@ -758,6 +832,7 @@ function Historial({ tok }) {
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                   <button onClick={() => setDetalle(l)} style={{ background: '#f0fdf4', color: '#15803d', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>Ver</button>
+                  <button onClick={() => onCopiar && onCopiar(l)} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>Copiar</button>
                   <button onClick={() => eliminar(l)} disabled={eliminando === l.id} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>{eliminando === l.id ? '...' : 'Eliminar'}</button>
                 </div>
               </div>

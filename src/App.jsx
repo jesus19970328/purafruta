@@ -333,7 +333,7 @@ const Table = ({ cols, rows, empty = 'Sin registros', loading }) => (
   </div>
 );
 const Grid = ({ cols = 2, children }) => <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 12 }}>{children}</div>;
-const Tabs = ({ tabs, active, onChange }) => <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{tabs.map(([id, label]) => <button key={id} onClick={() => onChange(id)} style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500, border: 'none', cursor: 'pointer', background: active === id ? '#16a34a' : '#fff', color: active === id ? '#fff' : '#6b7280', boxShadow: active === id ? 'none' : '0 0 0 1px #e5e7eb', transition: 'all .15s' }}>{label}</button>)}</div>;
+const Tabs = ({ tabs, active, onChange }) => <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 20, background: '#f3f4f6', padding: '8px 0', marginBottom: 4 }}>{tabs.map(([id, label]) => <button key={id} onClick={() => onChange(id)} style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500, border: 'none', cursor: 'pointer', background: active === id ? '#16a34a' : '#fff', color: active === id ? '#fff' : '#6b7280', boxShadow: active === id ? 'none' : '0 0 0 1px #e5e7eb', transition: 'all .15s' }}>{label}</button>)}</div>;
 
 // ── DASHBOARD ──────────────────────────────────────────────
 function Dashboard({ tok }) {
