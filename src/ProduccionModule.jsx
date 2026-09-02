@@ -92,6 +92,33 @@ function InventarioStock({ tok, tabla, titulo, emoji, tipoSalida }) {
   const [ajusteMotivo, setAjusteMotivo] = useState('');
   const [saving, setSaving] = useState(false);
   const [showSalida, setShowSalida] = useState(null);
+  const [showNuevo, setShowNuevo] = useState(false);
+  const [nuevoForm, setNuevoForm] = useState({ nombre: '', cantidad: '' });
+  const [guardandoNuevo, setGuardandoNuevo] = useState(false);
+
+  const guardarNuevo = async () => {
+    if (!nuevoForm.nombre || nuevoForm.cantidad === '') return;
+    setGuardandoNuevo(true);
+    // Crear producto si no existe
+    const prodExist = await db.get('productos', `nombre=eq.${encodeURIComponent(nuevoForm.nombre.trim().toUpperCase())}&select=id`, tok);
+    let prodId = Array.isArray(prodExist) && prodExist[0]?.id;
+    if (!prodId) {
+      const nuevo = await db.post('productos', { nombre: nuevoForm.nombre.trim().toUpperCase(), unidad: 'paquete', activo: true, es_producido: true }, tok);
+      prodId = Array.isArray(nuevo) ? nuevo[0]?.id : nuevo?.id;
+    }
+    if (prodId) {
+      const exist = await db.get(tabla, `producto_id=eq.${prodId}&select=id`, tok);
+      if (Array.isArray(exist) && exist[0]?.id) {
+        await db.patch(tabla, `producto_id=eq.${prodId}`, { stock_actual: parseFloat(nuevoForm.cantidad), ultima_actualizacion: new Date().toISOString() }, tok);
+      } else {
+        await db.post(tabla, { producto_id: prodId, stock_actual: parseFloat(nuevoForm.cantidad), ultima_actualizacion: new Date().toISOString() }, tok);
+      }
+    }
+    setNuevoForm({ nombre: '', cantidad: '' });
+    setShowNuevo(false);
+    setGuardandoNuevo(false);
+    load();
+  };
   const [expandidoId, setExpandidoId] = useState(null);
   const [movimientosExp, setMovimientosExp] = useState([]);
   const [loadingMov, setLoadingMov] = useState(false);
@@ -159,8 +186,26 @@ function InventarioStock({ tok, tabla, titulo, emoji, tipoSalida }) {
             <p style={{ fontWeight: 700, fontSize: 15, color: '#111827', margin: '0 0 2px' }}>{emoji} {titulo}</p>
             <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>{rows.length} productos · {sinStock} sin stock · {stockBajoCount} stock bajo</p>
           </div>
-          <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar..." style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 13, outline: 'none', width: 180 }} />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar..." style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 13, outline: 'none', width: 160 }} />
+            <button onClick={() => setShowNuevo(!showNuevo)} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><Plus size={13} /> Agregar</button>
+          </div>
         </div>
+        {/* Nuevo producto */}
+        {showNuevo && (
+          <div style={{ background: '#f0fdf4', borderRadius: 10, padding: 12, marginBottom: 12, display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 2, minWidth: 160 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Nombre del producto</label>
+              <input value={nuevoForm.nombre} onChange={e => setNuevoForm({ ...nuevoForm, nombre: e.target.value })} placeholder="Ej: NARANJA 700ML" style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#111827', background: '#fff', outline: 'none' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 100 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Cantidad inicial</label>
+              <input type="number" value={nuevoForm.cantidad} onChange={e => setNuevoForm({ ...nuevoForm, cantidad: e.target.value })} placeholder="0" style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#111827', background: '#fff', outline: 'none' }} />
+            </div>
+            <button onClick={guardarNuevo} disabled={guardandoNuevo || !nuevoForm.nombre || nuevoForm.cantidad === ''} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>{guardandoNuevo ? 'Guardando...' : 'Guardar'}</button>
+            <button onClick={() => setShowNuevo(false)} style={{ background: '#fff', color: '#6b7280', border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '9px 12px', fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
+          </div>
+        )}
         {/* Filtros */}
         <div style={{ display: 'flex', gap: 6 }}>
           {[['todos', `Todos (${rows.length})`], ['sin_stock', `Sin stock (${sinStock})`], ['stock_bajo', `Stock bajo (${stockBajoCount})`]].map(([k, label]) => {
