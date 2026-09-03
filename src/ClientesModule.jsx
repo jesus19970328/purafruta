@@ -982,7 +982,7 @@ function DetallePedido({ pedido, tok, onVolver }) {
             <tfoot>
               <tr style={{ borderTop: '2px solid #e5e7eb', background: '#f9fafb' }}>
                 <td colSpan={3} style={{ padding: '14px 16px', fontSize: 15, fontWeight: 700, color: '#374151', textAlign: 'right' }}>TOTAL</td>
-                <td style={{ padding: '14px 16px', fontSize: 20, fontWeight: 900, color: '#16a34a', textAlign: 'right' }}>{gs(pedido.total)}</td>
+                <td style={{ padding: '14px 16px', fontSize: 20, fontWeight: 900, color: '#16a34a', textAlign: 'right' }}>{gs(totalReal)}</td>
               </tr>
               {parseFloat(pedido.total_pagado) > 0 && (
                 <tr style={{ background: '#f9fafb' }}>
