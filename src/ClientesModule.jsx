@@ -666,7 +666,8 @@ function DetallePedido({ pedido, tok, onVolver }) {
 
     setSaving(false);
     setEditando(false);
-    onVolver(); // Volver para recargar el pedido con datos frescos
+    // Recargar datos frescos sin salir del pedido
+    load();
   };
 
   const gs = (n) => new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(n || 0) + ' Gs.';
