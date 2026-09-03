@@ -674,7 +674,11 @@ function DetallePedido({ pedido, tok, onVolver }) {
   const fd = (d) => d ? new Date(d).toLocaleDateString('es-PY') : '—';
   const inp = { border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '11px 14px', fontSize: 14, color: '#111827', background: '#fff', width: '100%', boxSizing: 'border-box', outline: 'none' };
   const cliente = pedido.clientes_externos || {};
-  const saldo = parseFloat(pedido.saldo || 0);
+  // Total real calculado desde los items actuales del detalle
+  const totalReal = detalle.length > 0
+    ? detalle.reduce((s, d) => s + parseFloat(d.subtotal || 0), 0)
+    : parseFloat(pedido.total || 0);
+  const saldo = Math.max(0, totalReal - parseFloat(pedido.total_pagado || 0));
   const estadoColor = { pendiente: '#f59e0b', parcial: '#f97316', pagado: '#16a34a', vencido: '#dc2626' };
   const nroPedido = String(pedido.id).slice(-6).toUpperCase();
 
@@ -1011,7 +1015,7 @@ function DetallePedido({ pedido, tok, onVolver }) {
           onClick={() => { setFormPag(f => ({ ...f, monto: String(saldo) })); setShowPagModal(true); }}
           style={{ width: '100%', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontSize: 16, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
         >
-          Registrar pago — {gs(saldo)} pendiente
+          Registrar pago — {gs(Math.max(0, totalReal - parseFloat(pedido.total_pagado || 0)))} pendiente
         </button>
       )}
 
