@@ -575,11 +575,10 @@ function NuevaHojita({ tok, onGuardado, datosCopia }) {
   };
 
   // Costo materia prima usando última compra o precio manual ingresado
-  const costoMP = materia.filter(m => m.nombre && parseFloat(m.peso_neto) > 0).reduce((s, m) => {
-    // Primero intenta usar precio de la última compra
+  const costoMP = materia.filter(m => m.nombre && parseFloat(m.peso_bruto) > 0).reduce((s, m) => {
+    // Usa peso bruto para el costo de materia prima
     if (m.producto_id && preciosMP[m.producto_id]) {
-      const usadoKgCalc = parseFloat(m.peso_neto) - parseFloat(m.sobra_neto || 0);
-      return s + (usadoKgCalc * preciosMP[m.producto_id].precioKg);
+      return s + (parseFloat(m.peso_bruto) * preciosMP[m.producto_id].precioKg);
     }
     // Si no hay compra registrada, usa el precio manual ingresado
     if (m.precio_unitario) return s + calcularCostoIngrediente(m);
