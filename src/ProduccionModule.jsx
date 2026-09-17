@@ -417,7 +417,7 @@ function HistorialProducto({ tok, row, tabla, onVolver }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-        <button onClick={onVolver} style={{ background: '#f3f4f6', border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 14, cursor: 'pointer', fontWeight: 600 }}>← Volver</button>
+        <button onClick={onVolver} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 14, cursor: 'pointer', fontWeight: 600 }}>← Volver</button>
         <div>
           <p style={{ fontWeight: 800, fontSize: 16, color: '#111827', margin: 0, textTransform: 'uppercase' }}>{row.productos?.nombre}</p>
           <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>Stock actual: <strong style={{ color: stock === 0 ? '#dc2626' : '#15803d' }}>{stock} {unidad}</strong></p>
@@ -504,6 +504,18 @@ function NuevaHojita({ tok, onGuardado, datosCopia }) {
 
   useEffect(() => {
     db.get('productos', 'activo=eq.true&order=nombre', tok).then(d => setProds(Array.isArray(d) ? d : []));
+    // Auto-número de hojita: traer el último y sumar 1
+    if (!datosCopia) {
+      db.get('produccion_lotes', 'order=created_at.desc&limit=1&select=observacion', tok).then(d => {
+        if (Array.isArray(d) && d[0]) {
+          try {
+            const obs = JSON.parse(d[0].observacion || '{}');
+            const ultimo = parseInt(obs.general?.numero_hojita || obs.calculos?.numero_hojita || 0);
+            if (ultimo > 0) setGeneral(g => ({ ...g, numero_hojita: String(ultimo + 1) }));
+          } catch {}
+        }
+      });
+    }
     db.get('sucursal_inventario', 'select=*,productos(nombre,unidad)&order=productos(nombre)', tok).then(d => setFrescos(Array.isArray(d) ? d : []));
     // Cargar últimos precios de compra por producto
     db.get('compras_detalle', 'select=producto_id,precio_unitario,unidad,compra_id,compras(fecha)&order=compra_id.desc', tok).then(d => {
@@ -599,7 +611,7 @@ function NuevaHojita({ tok, onGuardado, datosCopia }) {
         responsable: firmas.nombres_operadores || operadores.filter(o => o.nombre).map(o => o.nombre).join(', '),
         hora_inicio: operadores[0]?.inicio || null,
         hora_fin: operadores[0]?.fin || null,
-        observacion: JSON.stringify({ general, materia: materia.filter(m => m.nombre), operadores: operadores.filter(o => o.nombre), indirectos, tareas: tareas.filter(t => t.descripcion), firmas, calculos: { horasTotales, costoMO, costoInd, costoMP, costoTotal, costoUnit, precioSug } }),
+        observacion: JSON.stringify({ general, materia: materia.filter(m => m.nombre), operadores: operadores.filter(o => o.nombre), indirectos, tareas: tareas.filter(t => t.descripcion), firmas, calculos: { numero_hojita: general.numero_hojita, horasTotales, costoMO, costoInd, costoMP, costoTotal, costoUnit, precioSug } }),
         estado: 'cerrado',
       };
       const res = await db.post('produccion_lotes', payload, tok);
@@ -871,7 +883,7 @@ function Historial({ tok, onCopiar }) {
             return (
               <div key={l.id} style={{ padding: '10px 14px', borderBottom: i < lotes.length - 1 ? '1px solid #f3f4f6' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontWeight: 700, fontSize: 13, color: '#111827', margin: '0 0 1px', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{det?.productos?.nombre || '—'}</p>
+                  <p style={{ fontWeight: 700, fontSize: 13, color: '#111827', margin: '0 0 1px', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{det?.productos?.nombre || '—'} {calc.numero_hojita && <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 400 }}>#{calc.numero_hojita}</span>}</p>
                   <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>{fd(l.fecha)} · {det?.cantidad_producida || 0} paq. {calc.costoUnit > 0 && `· Costo: ${gs(calc.costoUnit)}`}</p>
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
@@ -898,10 +910,16 @@ function DetalleHojita({ lote, onVolver }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 40 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onVolver} style={{ background: '#f3f4f6', border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 14, cursor: 'pointer', fontWeight: 600 }}>← Volver</button>
+        <button onClick={onVolver} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 14, cursor: 'pointer', fontWeight: 600 }}>← Volver</button>
         <div>
-          <p style={{ fontWeight: 700, fontSize: 15, color: '#111827', margin: 0 }}>Hojita #{general.numero_hojita || '—'}</p>
-          <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>{fd(lote.fecha)}</p>
+          <p style={{ fontWeight: 700, fontSize: 17, color: '#111827', margin: '0 0 2px' }}>Hojita #{general.numero_hojita || '—'}</p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 12, color: '#6b7280' }}>
+            <span>Fecha: <strong>{fd(lote.fecha)}</strong></span>
+            {general.gramaje && <span>Gramaje: <strong>{general.gramaje}g</strong></span>}
+            {general.tamano && <span>Tamaño: <strong>{general.tamano}</strong></span>}
+            {general.congelador_nro && <span>Congelador: <strong>#{general.congelador_nro}</strong></span>}
+            {det?.cantidad_producida > 0 && <span>Paquetes: <strong>{det.cantidad_producida}</strong></span>}
+          </div>
         </div>
       </div>
       <Card style={{ border: '2px solid #16a34a' }}>
