@@ -477,7 +477,7 @@ function NuevaHojita({ tok, onGuardado, datosCopia }) {
   const emptyOp = () => ({ nombre: '', inicio: '', fin: '' });
   const emptyTarea = () => ({ inicio: '', fin: '', descripcion: '' });
 
-  const [general, setGeneral] = useState({ fecha: new Date().toISOString().split('T')[0], producto_id: '', gramaje: '', tamano: 'grande', congelador_nro: '', numero_hojita: '' });
+  const [general, setGeneral] = useState({ fecha: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0], producto_id: '', gramaje: '', tamano: 'grande', congelador_nro: '', numero_hojita: '' });
   const [materia, setMateria] = useState([emptyMateria()]);
   const [paquetes, setPaquetes] = useState('');
   const [operadores, setOperadores] = useState([emptyOp()]);
@@ -490,7 +490,7 @@ function NuevaHojita({ tok, onGuardado, datosCopia }) {
     if (datosCopia) {
       try {
         const obs = JSON.parse(datosCopia.observacion || '{}');
-        if (obs.general) setGeneral({ ...obs.general, fecha: new Date().toISOString().split('T')[0], numero_hojita: '' });
+        if (obs.general) setGeneral({ ...obs.general, fecha: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0], numero_hojita: '' });
         if (obs.materia?.length) setMateria(obs.materia.map(m => ({ ...m, _sugerencias: [], _mostrarSug: false })));
         if (obs.operadores?.length) setOperadores(obs.operadores);
         if (obs.indirectos) setIndirectos(obs.indirectos);
