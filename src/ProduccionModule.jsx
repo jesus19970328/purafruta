@@ -603,7 +603,13 @@ function NuevaHojita({ tok, onGuardado, datosCopia }) {
   const tienePreciosMP = materia.filter(m => m.producto_id).some(m => preciosMP[m.producto_id]);
 
   const guardar = async () => {
-    if (!general.producto_id || !paquetes) { setErr('Completá el producto y la cantidad de paquetes'); return; }
+    if ((!general.producto_id && !general.nombre_producto) || !paquetes) { setErr('Completá el producto y la cantidad de paquetes'); return; }
+    if (!general.producto_id && general.nombre_producto) {
+      const nuevo = await db.post('productos', { nombre: general.nombre_producto.trim().toUpperCase(), unidad: 'paquete', activo: true, es_producido: true }, tok);
+      const prodNuevo = Array.isArray(nuevo) ? nuevo[0] : nuevo;
+      if (prodNuevo?.id) { general.producto_id = prodNuevo.id; setProds(prev => [...prev, prodNuevo]); }
+      else { setErr('Error al crear el producto'); return; }
+    }
     setSaving(true); setErr('');
     try {
       const payload = {
@@ -661,10 +667,29 @@ function NuevaHojita({ tok, onGuardado, datosCopia }) {
             <Inp label="N° de hojita" value={general.numero_hojita} onChange={e => setGeneral({ ...general, numero_hojita: e.target.value })} placeholder="Ej: 5542" />
             <Inp label="Fecha" type="date" value={general.fecha} onChange={e => setGeneral({ ...general, fecha: e.target.value })} />
           </Row2>
-          <Sel label="Producto *" value={general.producto_id} onChange={e => setGeneral({ ...general, producto_id: e.target.value })}>
-            <option value="">Seleccionar producto...</option>
-            {prods.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-          </Sel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Producto *</label>
+            <input
+              value={general.nombre_producto || prods.find(p => p.id === general.producto_id)?.nombre || ''}
+              onChange={e => {
+                const val = e.target.value;
+                const match = prods.find(p => p.nombre.toLowerCase() === val.toLowerCase());
+                setGeneral({ ...general, nombre_producto: val, producto_id: match ? match.id : '' });
+              }}
+              placeholder="Escribí o buscá el producto..."
+              list="prod-list-hojita"
+              style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#111827', background: '#fafafa', outline: 'none' }}
+            />
+            <datalist id="prod-list-hojita">
+              {prods.map(p => <option key={p.id} value={p.nombre} />)}
+            </datalist>
+            {general.nombre_producto && !general.producto_id && (
+              <p style={{ fontSize: 11, color: '#f59e0b', margin: '2px 0 0', fontWeight: 600 }}>Producto nuevo — se creará al guardar</p>
+            )}
+            {general.producto_id && (
+              <p style={{ fontSize: 11, color: '#16a34a', margin: '2px 0 0', fontWeight: 600 }}>Producto existente ✓</p>
+            )}
+          </div>
           <Row2>
             <Inp label="Gramaje (g)" type="number" value={general.gramaje} onChange={e => setGeneral({ ...general, gramaje: e.target.value })} placeholder="Ej: 300" />
             <Sel label="Tamaño" value={general.tamano} onChange={e => setGeneral({ ...general, tamano: e.target.value })}><option value="chico">Chico</option><option value="grande">Grande</option></Sel>
