@@ -30,15 +30,15 @@ const fd = (d) => {
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: Home, roles: ['admin','director','finanzas'] },
-  { id: 'compras', label: 'Compras', icon: ShoppingCart, roles: ['admin','almacen'] },
-  { id: 'almacen', label: 'Almacén', icon: Package, roles: ['admin','almacen'] },
-  { id: 'produccion', label: 'Producción', icon: Factory, roles: ['admin','produccion'] },
-  { id: 'pdv', label: 'Punto de venta', icon: Store, roles: ['admin','sucursal'] },
-  { id: 'pedidos', label: 'Pedidos', icon: Truck, roles: ['admin','almacen','sucursal','produccion'] },
-  { id: 'finanzas', label: 'Finanzas', icon: DollarSign, roles: ['admin','finanzas'] },
+  { id: 'compras', label: 'Compras', icon: ShoppingCart, roles: ['admin','director','almacen'] },
+  { id: 'almacen', label: 'Almacén', icon: Package, roles: ['admin','director','almacen'] },
+  { id: 'produccion', label: 'Producción', icon: Factory, roles: ['admin','director','produccion'] },
+  { id: 'pdv', label: 'Punto de venta', icon: Store, roles: ['admin','director','sucursal'] },
+  { id: 'pedidos', label: 'Pedidos', icon: Truck, roles: ['admin','director','almacen','sucursal','produccion'] },
+  { id: 'finanzas', label: 'Finanzas', icon: DollarSign, roles: ['admin','director','finanzas'] },
   { id: 'reportes', label: 'Reportes', icon: BarChart3, roles: ['admin','director','finanzas'] },
-  { id: 'activos', label: 'Activos fijos', icon: Package, roles: ['admin','almacen','produccion','sucursal','director'] },
-  { id: 'clientes', label: 'Clientes externos', icon: ShoppingCart, roles: ['admin','finanzas','director'] },
+  { id: 'activos', label: 'Activos fijos', icon: Package, roles: ['admin','director','almacen','produccion','sucursal'] },
+  { id: 'clientes', label: 'Clientes externos', icon: ShoppingCart, roles: ['admin','director','finanzas'] },
 ];
 
 export default function App() {
