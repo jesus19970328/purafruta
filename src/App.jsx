@@ -446,6 +446,7 @@ function ListaCompras({ tok, setTab }) {
 
   const totalGeneral = rows.filter(r => (r.tipo_compra || 'general') === 'general').length;
   const totalPersonal = rows.filter(r => r.tipo_compra === 'personal').length;
+  const totalSucursal = rows.filter(r => r.tipo_compra === 'sucursal').length;
 
   // Resumen del mes actual
   const hoy = new Date();
@@ -455,6 +456,7 @@ function ListaCompras({ tok, setTab }) {
   const comprasDelMes = rows.filter(r => r.fecha >= inicioMes);
   const totalMesGeneral = comprasDelMes.filter(r => (r.tipo_compra || 'general') === 'general').reduce((s, r) => s + parseFloat(r.total || 0), 0);
   const totalMesPersonal = comprasDelMes.filter(r => r.tipo_compra === 'personal').reduce((s, r) => s + parseFloat(r.total || 0), 0);
+  const totalMesSucursal = comprasDelMes.filter(r => r.tipo_compra === 'sucursal').reduce((s, r) => s + parseFloat(r.total || 0), 0);
   const cantMesGeneral = comprasDelMes.filter(r => (r.tipo_compra || 'general') === 'general').length;
   const cantMesPersonal = comprasDelMes.filter(r => r.tipo_compra === 'personal').length;
 
@@ -745,6 +747,7 @@ function ModalEditarCompra({ tok, compra, onClose }) {
             <label style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Tipo de compra</label>
             <select value={form.tipo_compra} onChange={e => setForm({ ...form, tipo_compra: e.target.value })} style={inp}>
               <option value="general">General (impacta inventario)</option>
+              <option value="sucursal">Compra sucursal (va directo a sucursal)</option>
               <option value="personal">Personal (no afecta inventario)</option>
             </select>
           </div>
@@ -1831,12 +1834,202 @@ function PedidosModule({ tok, perfil }) {
 
 // ── FINANZAS ───────────────────────────────────────────────
 function FinanzasModule({ tok }) {
-  const [tab, setTab] = useState('caja');
+  const [tab, setTab] = useState('movimientos');
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Tabs tabs={[['caja','Caja general'],['transferencias','Transferencias']]} active={tab} onChange={setTab} />
+      <Tabs tabs={[['movimientos','Movimientos'],['dashboard','Dashboard'],['caja','Caja general'],['transferencias','Transferencias']]} active={tab} onChange={setTab} />
+      {tab === 'movimientos' && <Movimientos tok={tok} />}
+      {tab === 'dashboard' && <DashboardFinanzas tok={tok} />}
       {tab === 'caja' && <Caja tok={tok} />}
       {tab === 'transferencias' && <Transf tok={tok} />}
+    </div>
+  );
+}
+
+const CATEGORIAS_GASTO = ['Combustible','Pago personal','Gastos fábrica','Compras producción','Compras personales Sintia','Mantenimiento','Servicios','Otros gastos'];
+const CATEGORIAS_INGRESO = ['Venta clientes externos','Cobro transferencia','Ingreso caja sucursal','Otros ingresos'];
+
+function Movimientos({ tok }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [show, setShow] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [filtroTipo, setFiltroTipo] = useState('todos');
+  const hoy = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
+  const [form, setForm] = useState({ tipo: 'gasto', categoria: '', concepto: '', medio_pago: 'efectivo', monto: '', fecha: hoy });
+
+  const load = () => db.get('gastos', 'order=fecha.desc&select=*', tok).then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
+  useEffect(() => { load(); }, [tok]);
+
+  const guardar = async () => {
+    if (!form.categoria || !form.monto || !form.fecha) return;
+    setSaving(true);
+    await db.post('gastos', { ...form, monto: parseFloat(form.monto) }, tok);
+    setForm({ tipo: 'gasto', categoria: '', concepto: '', medio_pago: 'efectivo', monto: '', fecha: hoy });
+    setShow(false); setSaving(false); load();
+  };
+
+  const totalGastos = rows.filter(r => r.tipo === 'gasto').reduce((s, r) => s + parseFloat(r.monto || 0), 0);
+  const totalIngresos = rows.filter(r => r.tipo === 'ingreso').reduce((s, r) => s + parseFloat(r.monto || 0), 0);
+
+  const filtrados = filtroTipo === 'todos' ? rows : rows.filter(r => r.tipo === filtroTipo);
+
+  const medioPagoColor = { efectivo: '#15803d', qr: '#7c3aed', transferencia: '#1d4ed8' };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Resumen rápido */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+        {[['Total gastos', totalGastos, '#fef2f2', '#dc2626'], ['Total ingresos', totalIngresos, '#f0fdf4', '#15803d'], ['Balance', totalIngresos - totalGastos, (totalIngresos - totalGastos) >= 0 ? '#f0fdf4' : '#fef2f2', (totalIngresos - totalGastos) >= 0 ? '#15803d' : '#dc2626']].map(([l, v, bg, fg]) => (
+          <div key={l} style={{ background: bg, borderRadius: 12, padding: '12px 14px' }}>
+            <p style={{ fontSize: 11, color: fg, fontWeight: 600, margin: '0 0 4px', textTransform: 'uppercase' }}>{l}</p>
+            <p style={{ fontSize: 18, fontWeight: 800, color: fg, margin: 0 }}>{gs(v)}</p>
+          </div>
+        ))}
+      </div>
+
+      <Card>
+        <CardHead title="Registro de movimientos" action={<Btn variant="ghost" onClick={() => setShow(!show)}><Plus size={14} />Registrar</Btn>} />
+
+        {show && (
+          <div style={{ padding: 16, background: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
+            <Grid cols={3}>
+              <Select label="Tipo" value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value, categoria: '' })}>
+                <option value="gasto">Gasto</option>
+                <option value="ingreso">Ingreso</option>
+              </Select>
+              <Select label="Categoría *" value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })}>
+                <option value="">Seleccionar...</option>
+                {(form.tipo === 'gasto' ? CATEGORIAS_GASTO : CATEGORIAS_INGRESO).map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </Select>
+              <Input label="Concepto (opcional)" value={form.concepto} onChange={e => setForm({ ...form, concepto: e.target.value })} placeholder="Detalle adicional" />
+              <Select label="Medio de pago" value={form.medio_pago} onChange={e => setForm({ ...form, medio_pago: e.target.value })}>
+                <option value="efectivo">Efectivo</option>
+                <option value="qr">QR</option>
+                <option value="transferencia">Transferencia</option>
+              </Select>
+              <Input label="Monto (Gs.) *" type="number" value={form.monto} onChange={e => setForm({ ...form, monto: e.target.value })} />
+              <Input label="Fecha *" type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} />
+            </Grid>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <Btn onClick={guardar} disabled={saving || !form.categoria || !form.monto}>{saving ? 'Guardando...' : 'Guardar'}</Btn>
+              <Btn variant="secondary" onClick={() => setShow(false)}>Cancelar</Btn>
+            </div>
+          </div>
+        )}
+
+        {/* Filtros */}
+        <div style={{ padding: '10px 16px', display: 'flex', gap: 8, borderBottom: '1px solid #f3f4f6' }}>
+          {[['todos','Todos'],['gasto','Gastos'],['ingreso','Ingresos']].map(([v, l]) => (
+            <button key={v} onClick={() => setFiltroTipo(v)} style={{ padding: '5px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: filtroTipo === v ? '#16a34a' : '#f3f4f6', color: filtroTipo === v ? '#fff' : '#6b7280' }}>{l}</button>
+          ))}
+        </div>
+
+        {loading ? <p style={{ padding: 30, textAlign: 'center', color: '#9ca3af' }}>Cargando...</p> :
+          filtrados.length === 0 ? <p style={{ padding: 30, textAlign: 'center', color: '#9ca3af' }}>Sin movimientos</p> :
+          <div style={{ padding: '8px 14px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {filtrados.map(r => (
+              <div key={r.id} style={{ background: '#fff', borderRadius: 10, padding: '10px 14px', border: `1.5px solid ${r.tipo === 'gasto' ? '#fecaca' : '#bbf7d0'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 2 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, background: r.tipo === 'gasto' ? '#fef2f2' : '#f0fdf4', color: r.tipo === 'gasto' ? '#dc2626' : '#15803d', padding: '2px 8px', borderRadius: 6 }}>{r.tipo === 'gasto' ? '↓ Gasto' : '↑ Ingreso'}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{r.categoria}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10, fontSize: 11, color: '#9ca3af' }}>
+                    {r.concepto && <span>{r.concepto}</span>}
+                    <span style={{ color: medioPagoColor[r.medio_pago] || '#6b7280', fontWeight: 600 }}>{r.medio_pago}</span>
+                    <span>{fd(r.fecha)}</span>
+                  </div>
+                </div>
+                <span style={{ fontWeight: 800, fontSize: 15, color: r.tipo === 'gasto' ? '#dc2626' : '#15803d' }}>{r.tipo === 'gasto' ? '-' : '+'}{gs(r.monto)}</span>
+              </div>
+            ))}
+          </div>
+        }
+      </Card>
+    </div>
+  );
+}
+
+function DashboardFinanzas({ tok }) {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const hoy = new Date();
+    const inicioSemana = new Date(hoy); inicioSemana.setDate(hoy.getDate() - hoy.getDay()); inicioSemana.setHours(0,0,0,0);
+    const inicioMes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
+    const semStr = inicioSemana.toISOString().split('T')[0];
+
+    db.get('gastos', 'select=tipo,categoria,monto,fecha', tok).then(d => {
+      const rows = Array.isArray(d) ? d : [];
+      const semana = rows.filter(r => r.fecha >= semStr);
+      const mes = rows.filter(r => r.fecha >= inicioMes);
+
+      const suma = (arr, tipo) => arr.filter(r => r.tipo === tipo).reduce((s, r) => s + parseFloat(r.monto || 0), 0);
+      const porCat = (arr) => arr.filter(r => r.tipo === 'gasto').reduce((acc, r) => { acc[r.categoria] = (acc[r.categoria] || 0) + parseFloat(r.monto || 0); return acc; }, {});
+
+      setStats({
+        semGastos: suma(semana, 'gasto'), semIngresos: suma(semana, 'ingreso'),
+        mesGastos: suma(mes, 'gasto'), mesIngresos: suma(mes, 'ingreso'),
+        catSemana: porCat(semana), catMes: porCat(mes),
+      });
+      setLoading(false);
+    });
+  }, [tok]);
+
+  if (loading) return <p style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>Cargando...</p>;
+  if (!stats) return null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Semana */}
+      <Card>
+        <CardHead title="Esta semana" />
+        <div style={{ padding: 16, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          {[['Gastos', stats.semGastos, '#fef2f2', '#dc2626'], ['Ingresos', stats.semIngresos, '#f0fdf4', '#15803d'], ['Balance', stats.semIngresos - stats.semGastos, (stats.semIngresos - stats.semGastos) >= 0 ? '#f0fdf4' : '#fef2f2', (stats.semIngresos - stats.semGastos) >= 0 ? '#15803d' : '#dc2626']].map(([l, v, bg, fg]) => (
+            <div key={l} style={{ background: bg, borderRadius: 10, padding: '12px 14px' }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: fg, margin: '0 0 4px', textTransform: 'uppercase' }}>{l}</p>
+              <p style={{ fontSize: 18, fontWeight: 800, color: fg, margin: 0 }}>{gs(v)}</p>
+            </div>
+          ))}
+        </div>
+        {Object.keys(stats.catSemana).length > 0 && (
+          <div style={{ padding: '0 16px 14px' }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', margin: '0 0 8px' }}>GASTOS POR CATEGORÍA</p>
+            {Object.entries(stats.catSemana).sort((a,b) => b[1]-a[1]).map(([cat, monto]) => (
+              <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6', fontSize: 13 }}>
+                <span style={{ color: '#374151' }}>{cat}</span>
+                <span style={{ fontWeight: 700, color: '#dc2626' }}>{gs(monto)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Mes */}
+      <Card>
+        <CardHead title="Este mes" />
+        <div style={{ padding: 16, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          {[['Gastos', stats.mesGastos, '#fef2f2', '#dc2626'], ['Ingresos', stats.mesIngresos, '#f0fdf4', '#15803d'], ['Balance', stats.mesIngresos - stats.mesGastos, (stats.mesIngresos - stats.mesGastos) >= 0 ? '#f0fdf4' : '#fef2f2', (stats.mesIngresos - stats.mesGastos) >= 0 ? '#15803d' : '#dc2626']].map(([l, v, bg, fg]) => (
+            <div key={l} style={{ background: bg, borderRadius: 10, padding: '12px 14px' }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: fg, margin: '0 0 4px', textTransform: 'uppercase' }}>{l}</p>
+              <p style={{ fontSize: 18, fontWeight: 800, color: fg, margin: 0 }}>{gs(v)}</p>
+            </div>
+          ))}
+        </div>
+        {Object.keys(stats.catMes).length > 0 && (
+          <div style={{ padding: '0 16px 14px' }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', margin: '0 0 8px' }}>GASTOS POR CATEGORÍA</p>
+            {Object.entries(stats.catMes).sort((a,b) => b[1]-a[1]).map(([cat, monto]) => (
+              <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6', fontSize: 13 }}>
+                <span style={{ color: '#374151' }}>{cat}</span>
+                <span style={{ fontWeight: 700, color: '#dc2626' }}>{gs(monto)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
