@@ -12,7 +12,15 @@ const db = {
 };
 
 const gs = (n) => new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(n || 0) + ' Gs.';
-const fd = (d) => d ? new Date(d).toLocaleDateString('es-PY') : '—';
+const fd = (d) => {
+  if (!d) return '—';
+  // Si es solo fecha (YYYY-MM-DD), parsear sin convertir timezone
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const [y, m, day] = d.split('-');
+    return `${day}/${m}/${y}`;
+  }
+  return new Date(d).toLocaleDateString('es-PY');
+};
 const fdt = (d) => d ? new Date(d).toLocaleString('es-PY', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 const COSTO_HORA = 13000;
 const MARGEN = 0.55;
