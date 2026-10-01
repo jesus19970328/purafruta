@@ -1855,6 +1855,7 @@ function Movimientos({ tok }) {
   const [show, setShow] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState('todos');
+  const [editId, setEditId] = useState(null);
   const hoy = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
   const [form, setForm] = useState({ tipo: 'gasto', categoria: '', concepto: '', medio_pago: 'efectivo', monto: '', fecha: hoy });
 
@@ -1864,9 +1865,25 @@ function Movimientos({ tok }) {
   const guardar = async () => {
     if (!form.categoria || !form.monto || !form.fecha) return;
     setSaving(true);
-    await db.post('gastos', { ...form, monto: parseFloat(form.monto) }, tok);
+    if (editId) {
+      await db.patch('gastos', `id=eq.${editId}`, { ...form, monto: parseFloat(form.monto) }, tok);
+      setEditId(null);
+    } else {
+      await db.post('gastos', { ...form, monto: parseFloat(form.monto) }, tok);
+    }
     setForm({ tipo: 'gasto', categoria: '', concepto: '', medio_pago: 'efectivo', monto: '', fecha: hoy });
     setShow(false); setSaving(false); load();
+  };
+
+  const editar = (r) => {
+    setForm({ tipo: r.tipo, categoria: r.categoria, concepto: r.concepto || '', medio_pago: r.medio_pago, monto: String(r.monto), fecha: r.fecha });
+    setEditId(r.id); setShow(true);
+  };
+
+  const eliminar = async (r) => {
+    if (!window.confirm('¿Eliminar este movimiento?')) return;
+    await db.delete('gastos', `id=eq.${r.id}`, tok);
+    load();
   };
 
   const totalGastos = rows.filter(r => r.tipo === 'gasto').reduce((s, r) => s + parseFloat(r.monto || 0), 0);
@@ -1912,8 +1929,8 @@ function Movimientos({ tok }) {
               <Input label="Fecha *" type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} />
             </Grid>
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <Btn onClick={guardar} disabled={saving || !form.categoria || !form.monto}>{saving ? 'Guardando...' : 'Guardar'}</Btn>
-              <Btn variant="secondary" onClick={() => setShow(false)}>Cancelar</Btn>
+              <Btn onClick={guardar} disabled={saving || !form.categoria || !form.monto}>{saving ? 'Guardando...' : editId ? 'Actualizar' : 'Guardar'}</Btn>
+              <Btn variant="secondary" onClick={() => { setShow(false); setEditId(null); setForm({ tipo: 'gasto', categoria: '', concepto: '', medio_pago: 'efectivo', monto: '', fecha: hoy }); }}>Cancelar</Btn>
             </div>
           </div>
         )}
@@ -1941,7 +1958,11 @@ function Movimientos({ tok }) {
                     <span>{fd(r.fecha)}</span>
                   </div>
                 </div>
-                <span style={{ fontWeight: 800, fontSize: 15, color: r.tipo === 'gasto' ? '#dc2626' : '#15803d' }}>{r.tipo === 'gasto' ? '-' : '+'}{gs(r.monto)}</span>
+                <span style={{ fontWeight: 800, fontSize: 15, color: r.tipo === 'gasto' ? '#dc2626' : '#15803d', flexShrink: 0 }}>{r.tipo === 'gasto' ? '-' : '+'}{gs(r.monto)}</span>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => editar(r)} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 7, padding: '5px 8px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>Editar</button>
+                  <button onClick={() => eliminar(r)} style={{ background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, padding: '5px 8px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>Eliminar</button>
+                </div>
               </div>
             ))}
           </div>
