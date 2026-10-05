@@ -1846,7 +1846,7 @@ function FinanzasModule({ tok }) {
   );
 }
 
-const CATEGORIAS_GASTO = ['Combustible','Pago personal','Gastos fábrica','Compras producción','Compras personales Sintia','Mantenimiento','Servicios','Otros gastos'];
+const CATEGORIAS_GASTO = ['Combustible','Pago personal','Gastos fábrica','Gastos sucursal','Gastos Costanera','Compras producción','Compras personales Sintia','Mantenimiento','Servicios','Otros gastos'];
 const CATEGORIAS_INGRESO = ['Venta clientes externos','Cobro transferencia','Ingreso caja sucursal','Otros ingresos'];
 
 function Movimientos({ tok }) {
@@ -1857,7 +1857,8 @@ function Movimientos({ tok }) {
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [editId, setEditId] = useState(null);
   const hoy = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
-  const [form, setForm] = useState({ tipo: 'gasto', categoria: '', concepto: '', medio_pago: 'efectivo', monto: '', fecha: hoy });
+  const [form, setForm] = useState({ tipo: 'gasto', categoria: '', concepto: '', nro_operacion: '', medio_pago: 'efectivo', monto: '', fecha: hoy });
+  const [busca, setBusca] = useState('');
 
   const load = () => db.get('gastos', 'order=fecha.desc&select=*', tok).then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
   useEffect(() => { load(); }, [tok]);
@@ -1871,12 +1872,12 @@ function Movimientos({ tok }) {
     } else {
       await db.post('gastos', { ...form, monto: parseFloat(form.monto) }, tok);
     }
-    setForm({ tipo: 'gasto', categoria: '', concepto: '', medio_pago: 'efectivo', monto: '', fecha: hoy });
+    setForm({ tipo: 'gasto', categoria: '', concepto: '', nro_operacion: '', medio_pago: 'efectivo', monto: '', fecha: hoy });
     setShow(false); setSaving(false); load();
   };
 
   const editar = (r) => {
-    setForm({ tipo: r.tipo, categoria: r.categoria, concepto: r.concepto || '', medio_pago: r.medio_pago, monto: String(r.monto), fecha: r.fecha });
+    setForm({ tipo: r.tipo, categoria: r.categoria, concepto: r.concepto || '', nro_operacion: r.nro_operacion || '', medio_pago: r.medio_pago, monto: String(r.monto), fecha: r.fecha });
     setEditId(r.id); setShow(true);
   };
 
@@ -1889,7 +1890,7 @@ function Movimientos({ tok }) {
   const totalGastos = rows.filter(r => r.tipo === 'gasto').reduce((s, r) => s + parseFloat(r.monto || 0), 0);
   const totalIngresos = rows.filter(r => r.tipo === 'ingreso').reduce((s, r) => s + parseFloat(r.monto || 0), 0);
 
-  const filtrados = filtroTipo === 'todos' ? rows : rows.filter(r => r.tipo === filtroTipo);
+  const filtrados = (filtroTipo === 'todos' ? rows : rows.filter(r => r.tipo === filtroTipo)).filter(r => !busca || r.categoria?.toLowerCase().includes(busca.toLowerCase()) || r.concepto?.toLowerCase().includes(busca.toLowerCase()) || r.nro_operacion?.toLowerCase().includes(busca.toLowerCase()));
 
   const medioPagoColor = { efectivo: '#15803d', qr: '#7c3aed', transferencia: '#1d4ed8' };
 
@@ -1920,6 +1921,7 @@ function Movimientos({ tok }) {
                 {(form.tipo === 'gasto' ? CATEGORIAS_GASTO : CATEGORIAS_INGRESO).map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </Select>
               <Input label="Concepto (opcional)" value={form.concepto} onChange={e => setForm({ ...form, concepto: e.target.value })} placeholder="Detalle adicional" />
+              <Input label="N° Operación / Comprobante" value={form.nro_operacion} onChange={e => setForm({ ...form, nro_operacion: e.target.value })} placeholder="Ej: 001-001-0001234" />
               <Select label="Medio de pago" value={form.medio_pago} onChange={e => setForm({ ...form, medio_pago: e.target.value })}>
                 <option value="efectivo">Efectivo</option>
                 <option value="qr">QR</option>
@@ -1930,11 +1932,15 @@ function Movimientos({ tok }) {
             </Grid>
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <Btn onClick={guardar} disabled={saving || !form.categoria || !form.monto}>{saving ? 'Guardando...' : editId ? 'Actualizar' : 'Guardar'}</Btn>
-              <Btn variant="secondary" onClick={() => { setShow(false); setEditId(null); setForm({ tipo: 'gasto', categoria: '', concepto: '', medio_pago: 'efectivo', monto: '', fecha: hoy }); }}>Cancelar</Btn>
+              <Btn variant="secondary" onClick={() => { setShow(false); setEditId(null); setForm({ tipo: 'gasto', categoria: '', concepto: '', nro_operacion: '', medio_pago: 'efectivo', monto: '', fecha: hoy }); }}>Cancelar</Btn>
             </div>
           </div>
         )}
 
+        {/* Buscador */}
+        <div style={{ padding: '10px 16px 0' }}>
+          <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por categoría, concepto o N° comprobante..." style={{ border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#111827', background: '#fafafa', outline: 'none', width: '100%' }} />
+        </div>
         {/* Filtros */}
         <div style={{ padding: '10px 16px', display: 'flex', gap: 8, borderBottom: '1px solid #f3f4f6' }}>
           {[['todos','Todos'],['gasto','Gastos'],['ingreso','Ingresos']].map(([v, l]) => (
@@ -1954,6 +1960,7 @@ function Movimientos({ tok }) {
                   </div>
                   <div style={{ display: 'flex', gap: 10, fontSize: 11, color: '#9ca3af' }}>
                     {r.concepto && <span>{r.concepto}</span>}
+                    {r.nro_operacion && <span style={{ color: '#374151', fontWeight: 600 }}>#{r.nro_operacion}</span>}
                     <span style={{ color: medioPagoColor[r.medio_pago] || '#6b7280', fontWeight: 600 }}>{r.medio_pago}</span>
                     <span>{fd(r.fecha)}</span>
                   </div>
