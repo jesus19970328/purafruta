@@ -1892,6 +1892,40 @@ function Movimientos({ tok }) {
 
   const filtrados = (filtroTipo === 'todos' ? rows : rows.filter(r => r.tipo === filtroTipo)).filter(r => !busca || r.categoria?.toLowerCase().includes(busca.toLowerCase()) || r.concepto?.toLowerCase().includes(busca.toLowerCase()) || r.nro_operacion?.toLowerCase().includes(busca.toLowerCase()));
 
+  const exportarExcel = async () => {
+    try {
+      const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs');
+      const data = filtrados.map(r => ({
+        'Fecha': r.fecha || '',
+        'Tipo': r.tipo === 'gasto' ? 'Gasto' : 'Ingreso',
+        'Categoria': r.categoria || '',
+        'Concepto': r.concepto || '',
+        'N° Operación': r.nro_operacion || '',
+        'Medio de pago': r.medio_pago || '',
+        'Monto (Gs.)': parseFloat(r.monto || 0),
+      }));
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(data);
+      ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 22 }, { wch: 35 }, { wch: 18 }, { wch: 16 }, { wch: 14 }];
+      // Encabezados verdes
+      const cols = Object.keys(data[0] || {});
+      cols.forEach((_, ci) => {
+        const ref = XLSX.utils.encode_cell({ r: 0, c: ci });
+        if (ws[ref]) ws[ref].s = { font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 }, fill: { fgColor: { rgb: '16A34A' } }, alignment: { horizontal: 'center' } };
+      });
+      // Zebra
+      for (let r = 1; r <= data.length; r++) {
+        cols.forEach((_, ci) => {
+          const ref = XLSX.utils.encode_cell({ r, c: ci });
+          if (ws[ref]) ws[ref].s = { fill: { fgColor: { rgb: r % 2 === 0 ? 'F0FDF4' : 'FFFFFF' } }, font: { sz: 10 } };
+        });
+      }
+      ws['!autofilter'] = { ref: `A1:G${data.length + 1}` };
+      XLSX.utils.book_append_sheet(wb, ws, 'Movimientos');
+      XLSX.writeFile(wb, `purafruta_movimientos_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch(e) { alert('Error al exportar'); }
+  };
+
   const medioPagoColor = { efectivo: '#15803d', qr: '#7c3aed', transferencia: '#1d4ed8' };
 
   return (
@@ -1907,7 +1941,7 @@ function Movimientos({ tok }) {
       </div>
 
       <Card>
-        <CardHead title="Registro de movimientos" action={<Btn variant="ghost" onClick={() => setShow(!show)}><Plus size={14} />Registrar</Btn>} />
+        <CardHead title="Registro de movimientos" action={<div style={{display:'flex',gap:8}}><button onClick={exportarExcel} style={{background:'#16a34a',color:'#fff',border:'none',borderRadius:8,padding:'7px 12px',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5}}><Download size={13}/>Excel</button><Btn variant="ghost" onClick={() => setShow(!show)}><Plus size={14} />Registrar</Btn></div>} />
 
         {show && (
           <div style={{ padding: 16, background: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
